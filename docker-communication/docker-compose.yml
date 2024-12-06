@@ -1,0 +1,21 @@
+version: "3.8"
+services:
+  server:
+    build:
+      context: ./server
+    networks:
+      - my_network
+    ports:
+      - "5000:5000"
+
+  client:
+    build:
+      context: ./client
+    networks:
+      - my_network
+    depends_on:
+      - server
+
+networks:
+  my_network:
+    driver: bridge
