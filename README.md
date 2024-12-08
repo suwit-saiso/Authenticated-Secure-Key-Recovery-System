@@ -1,6 +1,11 @@
 # Authenticated-Secure-Key-Recovery-System
 
-`server.py`
+## `create network`
+```powershell
+docker network create my_network
+```
+---
+### `server.py`
 ```python
 import socket
 
@@ -22,7 +27,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             conn.sendall(b"Message received")
 ```
 ---
-`client.py`
+### `client.py`
 ```python
 import socket
 import os
@@ -40,7 +45,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     print(f"Received from server: {data.decode()}")
 ```
 ---
-`Dockerfile`
+### `Dockerfile`
 ```Dockerfile
 FROM python:3.9-slim
 
@@ -51,7 +56,7 @@ COPY . /app
 CMD ["python", "server.py"]  # หรือ client.py
 ```
 ---
-`docker-compose.yml`
+### `docker-compose.yml`
 ```yaml
 version: '3.8'
 services:
@@ -79,6 +84,16 @@ services:
 
 networks:
   my_network:
-    external: true
+    driver: bridge
 ```
 ---
+## `Folder Structure`
+```plaintext
+project/
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── server.py
+├── client.py
+└── README.md
+```

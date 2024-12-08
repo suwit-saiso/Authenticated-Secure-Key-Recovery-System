@@ -1,0 +1,40 @@
+version: '3.9'
+services:
+  app1:
+    build: .
+    networks:
+      - my_network
+    ports:
+      - "5001:5000"
+
+  app2:
+    build: .
+    networks:
+      - my_network
+    ports:
+      - "5002:5000"
+
+  app3:
+    build: .
+    networks:
+      - my_network
+    ports:
+      - "5003:5000"
+
+  app4:
+    build: .
+    networks:
+      - my_network
+    ports:
+      - "5004:5000"
+
+  app5:
+    build: .
+    networks:
+      - my_network
+    ports:
+      - "5005:5000"
+
+networks:
+  my_network:
+    driver: bridge
