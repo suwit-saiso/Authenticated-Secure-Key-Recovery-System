@@ -12,7 +12,7 @@ services:
   receiver:
     container_name: Receiver
     build:
-      context: ./receiver
+      context: ./Receiver
       dockerfile: Dockerfile.receiver
     networks:
       sfm_krs_network:
