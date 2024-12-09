@@ -1,35 +1,44 @@
-version: '3.9'
+version: "3.8"
 services:
-  container1:
-    container_name: container1
-    image: ubuntu
+  sender:
+    container_name: Sender
+    build:
+      context: ./Sender
+      dockerfile: Dockerfile.sender
     networks:
-      - my_network
-    command: sleep infinity
-  container2:
-    container_name: container2
-    image: ubuntu
+      sfm_krs_network:
+        ipv4_address: 192.168.1.2
+
+  receiver:
+    container_name: Receiver
+    build:
+      context: ./Receiver
+      dockerfile: Dockerfile.receiver
     networks:
-      - my_network
-    command: sleep infinity
-  container3:
-    container_name: container3
-    image: ubuntu
+      sfm_krs_network:
+        ipv4_address: 192.168.1.3
+
+  krc:
+    container_name: KRC
+    build:
+      context: ./KRC
+      dockerfile: Dockerfile.KRC
     networks:
-      - my_network
-    command: sleep infinity
-  container4:
-    container_name: container4
-    image: ubuntu
+      sfm_krs_network:
+        ipv4_address: 192.168.1.4
+        
+  kra:
+    container_name: KRA
+    build:
+      context: ./KRA
+      dockerfile: Dockerfile.KRA
     networks:
-      - my_network
-    command: sleep infinity
-  container5:
-    container_name: container5
-    image: ubuntu
-    networks:
-      - my_network
-    command: sleep infinity
+      sfm_krs_network:
+        ipv4_address: 192.168.1.5
+
 networks:
-  my_network:
+  sfm_krs_network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
