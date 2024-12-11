@@ -1,20 +1,42 @@
-from LoadKey import load_private_key, load_public_key
+from flask import Flask, request, jsonify
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
-import time
-import hashlib
+from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives.kdf.x963kdf import X963KDF
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import serialization
 import os
+import time
+import requests
+import hashlib
 import json
 
 #========================= Setup =========================
+# Initialize Flask app
+app = Flask(__name__)
+
+# Load keys
+def load_private_key(file_path):
+    with open(file_path, "rb") as key_file:
+        private_key = serialization.load_pem_private_key(key_file.read(), password=None)
+    return private_key
+
+def load_public_key(file_path):
+    with open(file_path, "rb") as key_file:
+        public_key = serialization.load_pem_public_key(key_file.read())
+    return public_key
+
 # Load KRC's private key
 krc_private_key = load_private_key("krc_private_key.pem")
 
 # Load Receiver's public key
 receiver_public_key = load_public_key("receiver_public_key.pem")
 
-# Load KRA public keys
-kra_public_keys = [load_public_key(f"kra{i}_public_key.pem") for i in range(1, 6)]
+# Load KRAs' public keys
+kra_public_keys = [
+    load_public_key(f"kra_public_key_{i}.pem") for i in range(1, 6)
+]
 
 # Store KRA challenge verifiers
 kra_challenge_verifiers = {}
@@ -151,16 +173,18 @@ def encrypt_and_send_session_key(session_key):
 
 # Utility functions (placeholders) for communication with KRAs
 def send_to_kra(kra_index, encrypted_data):
-    # Simulate sending encrypted data to KRA (to be implemented)
-    pass
+    url = f"http://kra-{kra_index}:5003/process"
+    response = requests.post(url, json={"encrypted_data": encrypted_data.hex()})
+    if response.status_code != 200:
+        raise ValueError(f"Failed to send data to KRA-{kra_index}")
+    return response.json()
 
 def receive_from_kra(kra_index):
-    # Simulate receiving data from KRA (to be implemented)
-    return {"challenge_verifier": kra_challenge_verifiers[f"KRA-{kra_index}"]}
-
-def handle_failed_kra(kra_index):
-    # Handle failure in case KRA verification or key share collection fails (to be implemented)
-    pass
+    url = f"http://kra-{kra_index}:5003/retrieve"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise ValueError(f"Failed to receive data from KRA-{kra_index}")
+    return response.json()
 
 # Function to handle individual KRA failures
 def handle_failed_kra(i):
@@ -175,3 +199,30 @@ def handle_kra_failure():
     # Fallback mechanism for missing parts or initiate recovery process
     # Implement SFM-KRS specific recovery (e.g., redundant shares or recovery mechanism)
     pass
+
+@app.route('/receive_request', methods=['POST'])
+def receive_request():
+    data = request.get_json()
+    encrypted_request = bytes.fromhex(data['encrypted_request'])
+
+    try:
+        # Step 1: Receive and decrypt the request
+        krf, requester_challenge_verifier, request_session_id, request_timestamp = receive_and_decrypt_request(encrypted_request)
+        krf_data = decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
+
+        # Step 2: Distribute KRF-i to KRAs and collect encrypted KRF-i responses
+        encrypted_krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
+
+        # Step 3: Assemble the session key from KRF-i parts
+        session_key = collect_key_shares_and_assemble(encrypted_krf_i_list)
+
+        # Step 4: Encrypt the session key and send it back to the Receiver
+        encrypted_session_key = encrypt_and_send_session_key(session_key)
+        return jsonify({"status": "success", "encrypted_session_key": encrypted_session_key.hex()})
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    
+#========================= Main =========================
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5002)

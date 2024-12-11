@@ -1,15 +1,25 @@
+from flask import Flask, request, jsonify
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from LoadKey import load_private_key, load_public_key
+import os
 import uuid
 import time
-import os
+import requests
 
-#========================= Setup =========================
-# Load KRC and KRA public keys (here we assume they are already available)
-# Load Sender private and public key
+app = Flask(__name__)
+
+#========================= Key Setup =========================
+# Load keys directly
+def load_private_key(file_path):
+    with open(file_path, "rb") as key_file:
+        return serialization.load_pem_private_key(key_file.read(), password=None)
+
+def load_public_key(file_path):
+    with open(file_path, "rb") as key_file:
+        return serialization.load_pem_public_key(key_file.read())
+
+# Load Sender's private and public keys
 sender_private_key = load_private_key("sender_private_key.pem")
 sender_public_key = load_public_key("sender_public_key.pem")
 
@@ -21,11 +31,10 @@ krc_public_key = load_public_key("krc_public_key.pem")
 
 # Load KRAs' public keys
 kra_public_keys = [
-    load_public_key(f"kra_public_key_{i}.pem") for i in range(1, 4)
+    load_public_key(f"kra_public_key_{i}.pem") for i in range(1, 6)
 ]
 
-# Proceed with the Sender's operations using these keys
-
+#========================= Utility Functions =========================
 # Generate session key (AES key)
 def generate_session_key():
     return os.urandom(32)  # AES 256-bit key
@@ -54,14 +63,7 @@ def first_establishment(session_key, plaintext, receiver_public_key):
     # Package the session_id, encrypted session key, IV, and encrypted message
     return session_id, encrypted_session_key, iv, encrypted_message
 
-# Send the message in an ongoing session
-def send_message_in_session(session_id, session_key, plaintext):
-    iv, encrypted_message = encrypt_plaintext(plaintext, session_key)
-    
-    # Include the session ID and encrypted message in the package
-    return session_id, iv, encrypted_message
-
-# Helper functions for KRF 
+# Split session key into parts for KRF
 def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
 
@@ -73,7 +75,7 @@ def split_session_key_xor(session_key, num_parts):
     parts.append(last_part)
     return parts
 
-# Function to generate Key Recovery Field (KRF) with session_id and timestamp
+# Generate KRF
 def generate_krf(session_key, krc_public_key, kra_public_keys, session_id):
     krf = {}
     sgn = os.urandom(16)  # Shared Group Number
@@ -81,71 +83,60 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, session_id):
     key_shares = split_session_key_xor(session_key, num_kras)  # Split session key
     timestamp = time.time()  # Add current timestamp
 
-    # Include session_id and timestamp outside of KRF_i
-    session_info = {
-        "session_id": session_id,
-        "timestamp": timestamp
-    }
-
-    # Encrypt session_id and timestamp with KRC's public key
+    # Include session_id and timestamp
+    session_info = {"session_id": session_id, "timestamp": timestamp}
     encrypted_session_info = krc_public_key.encrypt(
         str(session_info).encode(),
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
-
-    # Add encrypted session info to the KRF
     krf["session_info"] = encrypted_session_info
 
-    # Generate KRF_i for each KRA
+    # Encrypt KRF_i for each KRA
     for i, kra_public_key in enumerate(kra_public_keys):
-        si = key_shares[i]  # Get the key share for this KRA
+        si = key_shares[i]
         tti = xor(si, sgn)  # TTi = Si XOR SGN
-        krf_i = {
-            "Si": si,
-            "SGN": sgn,
-            "TTi": tti
-        }
-
-        # Encrypt KRF_i with the KRA's public key
+        krf_i = {"Si": si, "SGN": sgn, "TTi": tti}
         krf_i_encrypted = kra_public_key.encrypt(
             str(krf_i).encode(),
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
-
-        # Encrypt the KRF_i with the KRC's public key and add to the KRF
         krf[f"KRF-{i}"] = krc_public_key.encrypt(
             krf_i_encrypted,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
-
     return krf
 
-#==================Process==========================
-# Usage example
-plaintext = "Sensitive information"
-session_key = generate_session_key()
+#========================= Flask Routes =========================
+@app.route('/send', methods=['POST'])
+def send_message():
+    # รับ plaintext จาก client
+    data = request.json
+    plaintext = data['message']
 
-# First establishment of secure communication
-session_id,encrypted_session_key, iv, encrypted_message = first_establishment(session_key, plaintext, receiver_public_key)
-
-# Send encrypted_session_key, iv, and encrypted_message to the receiver
-
-encrypted_message = encrypt_plaintext(plaintext, session_key)
-
-krf = generate_krf(session_key, krc_public_key, kra_public_keys)
-#krf need to be encrypted with receiver public key
-
-
-#new part
-# Sender process !!!need to be adjust later!!! sending session key and so on
-def sender_process(message):
+     # สร้าง session key และเข้ารหัสข้อความ
     session_key = generate_session_key()
-    iv, encrypted_message = encrypt_plaintext(message, session_key)
-    
-    krc_public_key = load_krc_public_key()
-    krf = generate_krf(session_key, krc_public_key)
-    
-    return iv, encrypted_message, krf
 
-# Example usage
-iv, encrypted_message, krf = sender_process(plaintext)
+    # First establishment
+    session_id, encrypted_session_key, iv, encrypted_message = first_establishment(
+        session_key, plaintext, receiver_public_key)
+
+    # Generate KRF
+    krf = generate_krf(session_key, krc_public_key, kra_public_keys, session_id)
+
+    # Send data to Receiver
+    receiver_url = "http://receiver:5001/receive"
+    # เตรียมข้อมูลส่งไปยัง Receiver
+    payload = {
+        "session_id": session_id,
+        "encrypted_session_key": encrypted_session_key.hex(),
+        "iv": iv.hex(),
+        "encrypted_message": encrypted_message.hex(),
+        "krf": {k: v.hex() for k, v in krf.items()}
+    }
+    # ส่งข้อมูลไปยัง Receiver
+    response = requests.post(receiver_url, json=payload)
+    return jsonify(response.json())
+
+#========================= Main =========================
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
