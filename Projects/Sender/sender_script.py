@@ -165,7 +165,7 @@ def handle_message():
             "encrypted_message": encrypted_message.hex()
         }
 
-    # Send payload to Receiver !
+    # Send payload to Receiver
     response = send_to_receiver(json.dumps(payload).encode())
     return jsonify({"response": response.decode()})
 
