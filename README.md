@@ -26,10 +26,45 @@ Projects/
 │
 ├── KRA/
 │   ├── Dockerfile.KRA
-│   ├── kra.py
+│   ├── kra1/
+│   │   ├── kra1.py
+│   │   └── keys/
+│   │       ├── kra1_public.pem
+│   │       └── kra1_private.pem
+│   ├── kra2/
+│   │   ├── kra2.py
+│   │   └── keys/
+│   │       ├── kra2_public.pem
+│   │       └── kra2_private.pem
+│   ├── kra3/
+│   │   ├── kra3.py
+│   │   └── keys/
+│   │       ├── kra3_public.pem
+│   │       └── kra3_private.pem
+│   ├── kra4/
+│   │   ├── kra4.py
+│   │   └── keys/
+│   │       ├── kra4_public.pem
+│   │       └── kra4_private.pem
+│   └── kra5/
+│       ├── kra5.py
+│       └── keys/
+│           ├── kra5_public.pem
+│           └── kra5_private.pem
+│
+├── Shared/
 │   └── keys/
-│       ├── kra_private.pem
-│       └── kra_public.pem
+│       ├── kra1_public.pem
+│       ├── kra2_public.pem
+│       ├── kra3_public.pem
+│       ├── kra4_public.pem
+│       ├── kra5_public.pem
+│       ├── krc_public.pem
+│       ├── sender_public.pem
+│       └── receiver_public.pem
+│
+├── Generate Key/
+│   └── GenKey.py
 │
 └── docker-compose.yml
 ```
