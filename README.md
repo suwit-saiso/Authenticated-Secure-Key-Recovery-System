@@ -63,7 +63,7 @@ Projects/
 │       ├── sender_public.pem
 │       └── receiver_public.pem
 │
-├── Generate Key/
+├── generate_key/
 │   └── GenKey.py
 │
 └── docker-compose.yml
