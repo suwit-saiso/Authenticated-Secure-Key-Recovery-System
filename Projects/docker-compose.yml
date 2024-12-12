@@ -1,44 +1,132 @@
-version: "3.8"
+version: '3.9'
 services:
+  # Service สำหรับ GenKey.py
+  genkey:
+    image: python:3.9-slim
+    container_name: genkey
+    volumes:
+      - ./shared/keys:/app/shared/keys
+    working_dir: /app
+    command: python GenKey.py
+    entrypoint: ["python", "GenKey.py"]
+    restart: "no"
+
+  # Service สำหรับ Sender
   sender:
-    container_name: Sender
     build:
-      context: ./Sender
-      dockerfile: Dockerfile.sender
-    networks:
-      sfm_krs_network:
-        ipv4_address: 192.168.1.2
+      context: ./sender
+    container_name: sender
+    volumes:
+      - ./sender/keys:/app/keys
+      - ./shared/keys:/app/shared/keys
+    working_dir: /app
+    command: python sender_script.py
+    ports:
+      - "5000:5000"
+    depends_on:
+      - genkey
 
+  # Service สำหรับ Receiver
   receiver:
-    container_name: Receiver
     build:
-      context: ./Receiver
-      dockerfile: Dockerfile.receiver
-    networks:
-      sfm_krs_network:
-        ipv4_address: 192.168.1.3
+      context: ./receiver
+    container_name: receiver
+    volumes:
+      - ./receiver/keys:/app/keys
+      - ./shared/keys:/app/shared/keys
+    working_dir: /app
+    command: python receiver_script.py
+    ports:
+      - "5001:5000"
+    depends_on:
+      - genkey
 
+  # Service สำหรับ KRC
   krc:
-    container_name: KRC
     build:
-      context: ./KRC
-      dockerfile: Dockerfile.KRC
-    networks:
-      sfm_krs_network:
-        ipv4_address: 192.168.1.4
-        
-  kra:
-    container_name: KRA
-    build:
-      context: ./KRA
-      dockerfile: Dockerfile.KRA
-    networks:
-      sfm_krs_network:
-        ipv4_address: 192.168.1.5
+      context: ./krc
+    container_name: krc
+    volumes:
+      - ./krc/keys:/app/keys
+      - ./shared/keys:/app/shared/keys
+    working_dir: /app
+    command: python krc_script.py
+    ports:
+      - "5002:5000"
+    depends_on:
+      - genkey
 
-networks:
-  sfm_krs_network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 192.168.1.0/24
+  # Service สำหรับ KRA1
+  kra1:
+    build:
+      context: ./kra/kra1
+    container_name: kra1
+    volumes:
+      - ./kra/kra1/keys:/app/keys
+      - ./shared/keys:/app/shared/keys
+    working_dir: /app
+    command: python kra_script.py
+    ports:
+      - "5003:5000"
+    depends_on:
+      - genkey
+
+  # Service สำหรับ KRA2
+  kra2:
+    build:
+      context: ./kra/kra2
+    container_name: kra2
+    volumes:
+      - ./kra/kra2/keys:/app/keys
+      - ./shared/keys:/app/shared/keys
+    working_dir: /app
+    command: python kra_script.py
+    ports:
+      - "5004:5000"
+    depends_on:
+      - genkey
+
+  # Service สำหรับ KRA3
+  kra3:
+    build:
+      context: ./kra/kra3
+    container_name: kra3
+    volumes:
+      - ./kra/kra3/keys:/app/keys
+      - ./shared/keys:/app/shared/keys
+    working_dir: /app
+    command: python kra_script.py
+    ports:
+      - "5005:5000"
+    depends_on:
+      - genkey
+
+  # Service สำหรับ KRA4
+  kra4:
+    build:
+      context: ./kra/kra4
+    container_name: kra4
+    volumes:
+      - ./kra/kra4/keys:/app/keys
+      - ./shared/keys:/app/shared/keys
+    working_dir: /app
+    command: python kra_script.py
+    ports:
+      - "5006:5000"
+    depends_on:
+      - genkey
+
+  # Service สำหรับ KRA5
+  kra5:
+    build:
+      context: ./kra/kra5
+    container_name: kra5
+    volumes:
+      - ./kra/kra5/keys:/app/keys
+      - ./shared/keys:/app/shared/keys
+    working_dir: /app
+    command: python kra_script.py
+    ports:
+      - "5007:5000"
+    depends_on:
+      - genkey
