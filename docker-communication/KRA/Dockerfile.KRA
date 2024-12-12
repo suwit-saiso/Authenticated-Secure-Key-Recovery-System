@@ -1,7 +1,7 @@
 FROM python:3.9-slim
 
 # Install dependencies
-RUN apt update && apt install -y curl
+RUN apt-get update && apt-get install -y iputils-ping
 
 # Install Python dependencies
 RUN pip install flask
