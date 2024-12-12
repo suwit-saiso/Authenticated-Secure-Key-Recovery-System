@@ -1,0 +1,22 @@
+# Base Image
+FROM python:3.9-slim
+
+# Set working directory inside the container
+WORKDIR /app
+
+# Copy necessary files to the container
+COPY sender_script.py /app/sender_script.py
+# Copy keys directory to the container
+COPY keys/ /app/keys/  
+
+# Copy shared public keys
+COPY ../shared/keys/ /app/shared_keys/
+
+# Install dependencies
+RUN pip install flask cryptography requests
+
+# Expose the Flask application port
+EXPOSE 5000
+
+# Run the sender script
+CMD ["python", "sender_script.py"]
