@@ -35,7 +35,7 @@ receiver_public_key = load_public_key("receiver_public_key.pem")
 
 # Load KRAs' public keys
 kra_public_keys = [
-    load_public_key(f"kra_public_key_{i}.pem") for i in range(1, 6)
+    load_public_key(f"kra{i}_public_key.pem") for i in range(1, 6)
 ]
 
 # Store KRA challenge verifiers

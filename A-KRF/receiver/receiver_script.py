@@ -1,14 +1,15 @@
+import threading
+import socket
+import json
 from flask import Flask, request, jsonify
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa, padding 
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
 import os
 import time
-import json
 import hashlib
-import requests
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -38,6 +39,13 @@ krc_public_key = load_public_key("krc_public_key.pem")
 # Dictionary to store session IDs and corresponding session keys
 sessions = {}
 
+# Socket communication setup for KRC
+KRC_HOST = '0.0.0.0'  # Update with actual KRC container IP/hostname
+KRC_PORT = 5002
+
+# Socket server for sender communication
+SENDER_HOST = '0.0.0.0'
+SENDER_PORT = 5000
 
 #========================= Encryption/Decryption Functions =========================
 def decrypt_session_key(encrypted_session_key):
@@ -57,7 +65,7 @@ def encrypt_plaintext(plaintext, session_key):
     encryptor = cipher.encryptor()
     
     # Pad the plaintext before encryption (if needed)
-    padder = sym_padding.PKCS7(algorithms.AES.block_size).padder()
+    padder = padding.PKCS7(algorithms.AES.block_size).padder()
     padded_plaintext = padder.update(plaintext.encode()) + padder.finalize()
     
     # Encrypt the padded plaintext
@@ -75,7 +83,7 @@ def decrypt_plaintext(encrypted_message, session_key, iv):
     decrypted_padded_plaintext = decryptor.update(encrypted_message) + decryptor.finalize()
     
     # Remove padding from the plaintext
-    unpadder = sym_padding.PKCS7(algorithms.AES.block_size).unpadder()
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
     plaintext = unpadder.update(decrypted_padded_plaintext) + unpadder.finalize()
     
     return plaintext.decode()
@@ -146,107 +154,131 @@ def recover_session_key(krf,session_id):
 
 # Send encrypted data to KRC (Placeholder function)
 def send_to_krc(data):
-    print(f"Sending to KRC: {data}")
-    # Actual sending code would be implemented here (e.g., using HTTP POST)
+     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((KRC_HOST, KRC_PORT))
+        s.sendall(json.dumps(data).encode())
 
 # Receive response from KRC (Placeholder function)
 def receive_response_from_krc():
-    # In a real system, this would receive a response from KRC
-    return "Request accepted, please verify yourself"  # Simulated response for testing
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((KRC_HOST, KRC_PORT))
+        response = s.recv(1024)
+        return json.loads(response.decode())
 
 # Receive session key from KRC (Placeholder function)
 def receive_from_krc():
-    # In a real system, this would receive the session key from KRC
-    return os.urandom(32)  # Simulated 256-bit AES key for session key
-
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((KRC_HOST, KRC_PORT))
+        new_session_key = s.recv(1024)
+        return new_session_key
+    
 # ฟังก์ชั่นสำหรับสร้าง session ใหม่
-def establish_session(session_id, session_key):
-    sessions[session_id] = {'session_key': session_key}
+def establish_session(session_id, session_key, krf, iv, encrypted_message):
+    sessions[session_id] = {"session_key": session_key, "krf": krf, "iv": iv, "encrypted_message": encrypted_message}
+    print(f"Session established: {session_id}")
 
-# ฟังก์ชั่นตรวจสอบความถูกต้องของ session_key
-def is_valid_session_key(session_key):
-    # ตรวจสอบว่า session_key อยู่ในรูปแบบที่ถูกต้องหรือไม่
-    # ตัวอย่างการตรวจสอบว่า session_key เป็น byte string และมีความยาว 32 bytes
-    return isinstance(session_key, bytes) and len(session_key) == 32
+# Function to handle messages from the sender
+def receive_from_sender(session_id, iv, encrypted_message):
+    session = sessions.get(session_id)
+    if not session:
+        return "Session not found"
 
-# Function to receive data from sender
-def receiver_from_sender(session_id, iv, encrypted_session_key, encrypted_message, encrypted_krf=None):
-    # Step 1: ตรวจสอบว่า session_id มีอยู่ใน sessions หรือไม่
-    if session_id not in sessions:
-        # สร้าง session ใหม่หากไม่มี session_id
-        session_key = decrypt_session_key(encrypted_session_key)  # ถอดรหัส session_key
-        establish_session(session_id, session_key)
+    session_key = session.get("session_key")
+    if not session_key:
+        print("Session key missing, initiating recovery")
+        krf = session.get("krf")
+        recovered_key = recover_session_key(krf, session_id)
 
-    # Step 2: หาก session_id มีอยู่แล้ว ให้ดึง session_key มาใช้งาน
-    session_key = sessions.get(session_id)['session_key']
-    
-    # Step 3: ตรวจสอบว่า session_key มีรูปแบบที่ถูกต้องหรือไม่
-    if not is_valid_session_key(session_key):
-        # หาก session_key ไม่ถูกต้อง ให้ทำการขอกู้คืนกุญแจจาก KRC
-        return jsonify({"message": "session key is lost, attempting key recovery."}), 400
-    
-    # Step 4: If session_key exists, decrypt with it
-    if session_key:
-        iv = iv
-        decrypted_message = decrypt_plaintext(encrypted_message, session_key, iv)
-        return jsonify({
-            "message": decrypted_message,
-            "session_key_used": "from sender"
-        })
+        if recovered_key in ["Authentication failed", "Request denied"]:
+            return f"Error: {recovered_key}"
 
-    # Step 5: If session_key doesn't exist, attempt key recovery
-    if encrypted_krf:
-        # Decrypt the KRF using receiver's private key
-        krf = receiver_private_key.decrypt(
-            encrypted_krf,
-            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-        )
-        session_key = recover_session_key(krf, session_id)
-        
-        if session_key == "Authentication failed" or session_key == "Request denied":
-            return jsonify({"error": session_key}), 403
+        session["session_key"] = recovered_key
+        decrypted_message = decrypt_plaintext(encrypted_message, recovered_key, iv)
+        print(f"Decrypted message: {decrypted_message}")
+        return {"decrypted_message": decrypted_message, "session_key_used": "from KRC"}
 
-        # Decrypt again using the new session key from KRC
-        decrypted_message = decrypt_plaintext(encrypted_message, session_key, iv)
-        return jsonify({
-            "message": decrypted_message,
-            "session_key_used": "from KRC"
-        })
+    # Decrypt with existing session key
+    decrypted_message = decrypt_plaintext(encrypted_message, session_key, iv)
+    print(f"Decrypted message: {decrypted_message}")
+    return {"decrypted_message": decrypted_message, "session_key_used": "from sender"}
 
-    return jsonify({"error": "No encrypted message or KRF found"}), 400
+# Function to handle incoming data from the sender via socket
+def handle_sender_connection(conn):
+    try:
+        data = conn.recv(4096).decode()
+        if not data:
+            return
 
-# Endpoint for receiving recovery request
-# ฟังก์ชั่นสำหรับรับข้อมูลจาก sender
-@app.route('/receive', methods=['POST'])
-def receive_from_sender_endpoint():
+        request = json.loads(data)
+        session_id = request.get('session_id')
+        encrypted_session_key = request.get('encrypted_session_key', None)
+        encrypted_message = request.get('encrypted_message')
+        iv = request.get('iv')
+        encrypted_krf = request.get('krf', None)
+
+        # Handle session establishment or recovery
+        if session_id not in sessions:
+            # Create a new session if session_id does not exist
+            session_key = decrypt_session_key(encrypted_session_key)
+            if encrypted_krf:
+                krf = receiver_private_key.decrypt(
+                    encrypted_krf,
+                    padding.OAEP(
+                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                        algorithm=hashes.SHA256(),
+                        label=None
+                    )
+                )
+                establish_session(session_id, session_key, krf, iv, encrypted_message)
+
+        # Process message
+        response = receive_from_sender(session_id, iv, encrypted_message)
+        conn.sendall(json.dumps(response).encode())
+
+    except Exception as e:
+        print(f"Error handling sender connection: {e}")
+        conn.sendall(json.dumps({"error": str(e)}).encode())
+    finally:
+        conn.close()
+
+# Function to start the socket server
+def start_socket_server():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+        server.bind((SENDER_HOST, SENDER_PORT))
+        server.listen(5)
+        print(f"Socket server listening on {SENDER_HOST}:{SENDER_PORT}")
+
+        while True:
+            conn, addr = server.accept()
+            print(f"Connection from {addr}")
+            threading.Thread(target=handle_sender_connection, args=(conn,)).start()
+
+# Flask endpoint for manual testing
+@app.route('/manual_test', methods=['POST'])
+def manual_test():
     data = request.json
-    session_id = data.get('session_id')
-    encrypted_session_key = data.get('encrypted_session_key', None)
-    encrypted_message = data.get('encrypted_message')
-    iv = data.get('iv')
-    encrypted_krf = data.get('krf', None)
+    if data.get("command") == "start test":
+        if not sessions:
+            print("No session found")
+            return jsonify({"message": "No session found"}), 404
 
-    return receiver_from_sender(session_id, iv, encrypted_session_key, encrypted_message, encrypted_krf)
+        # Take the latest session_id
+        latest_session_id = list(sessions.keys())[-1]
+        session = sessions[latest_session_id]
 
-# Endpoint to trigger session key recovery from Postman
-# ฟังก์ชั่นสำหรับเริ่มการทดสอบการกู้คืนกุญแจ
-@app.route('/start_testing', methods=['POST'])
-def start_testing():
-    data = request.json
-    if data.get('message') == "start test":
-        session_id = data.get('session_id')
-        if session_id in sessions:
-            # ลบหรือเปลี่ยนแปลง session_key ใน sessions
-            sessions[session_id]['session_key'] = None
-            # Trigger the recovery process for testing
-            result = receiver_from_sender(session_id, None, encrypted_krf="test")  # Simulate KRF testing
-            return jsonify({"message": result})
-            return jsonify({"message": "session key is now lost, attempting key recovery."})
-        else:
-            return jsonify({"message": "session_id not found."}), 400
+        # Simulate session key loss
+        session_key = session.pop("session_key", None)
+        if not session_key:
+            print("Session key already removed")
 
-        
+        # Call receive_from_sender to trigger recovery
+        iv = session["iv"]
+        encrypted_message = session["encrypted_message"]
+        response = receive_from_sender(latest_session_id, iv, encrypted_message)
+        return jsonify({"message": response})
+    return jsonify({"message": "Invalid command"}), 400
 
-# Run the Flask app
+# Run Flask app and socket server concurrently
 if __name__ == '__main__':
+    threading.Thread(target=start_socket_server, daemon=True).start()
     app.run(host='0.0.0.0', port=5001)
