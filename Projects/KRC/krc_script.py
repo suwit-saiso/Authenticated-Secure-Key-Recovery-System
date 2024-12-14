@@ -70,21 +70,22 @@ def receive_and_decrypt_request(encrypted_request):
 
 # Function to decrypt the KRF and validate the request
 def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp):
-    decrypted_krf = krc_private_key.decrypt(
-        krf,
+    # Step: Decrypt session info
+    encrypted_session_info = krf["session_info"]
+    session_info_decrypted = krc_private_key.decrypt(
+        encrypted_session_info,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
+    session_info = json.loads(session_info_decrypted.decode())
+    krf_session_id = session_info["session_id"]
+    krf_timestamp = session_info["timestamp"]
     
-    krf_data = json.loads(decrypted_krf.decode())  # Decrypt and parse KRF
-    # Session validation
-    krf_session_id = krf_data['session_id']
-    krf_timestamp = krf_data['timestamp']
-    
-    # Validate session ID and timestamp (10 min threshold)
+    # Step: Validate session and check timestamp
     if krf_session_id != request_session_id or abs(request_timestamp - krf_timestamp) > 600:
         raise ValueError("Invalid session or expired request.")
-    
-    return krf_data
+    print(f"Session ID: {krf_session_id}, Timestamp: {krf_timestamp}")
+
+    return krf
 
 # Verify the requester using PKCE-like challenge <-useful?
 def verify_requester(challenge_code, requester_challenge_verifier):
@@ -122,8 +123,14 @@ def distribute_krf_to_kras(krf, kra_public_keys):
                 continue
 
             # If KRA verification succeeds, send KRF-i to KRA
-            krf_i = krf[f"KRF-{i}"]
-            send_to_kra(i, krf_i)
+            krf_i_encrypted = krf[f"KRF-{i}"]
+            # Decrypt the outer layer
+            inner_encrypted_data = krc_private_key.decrypt(
+                krf_i_encrypted,
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+            )
+            # Forward the inner encrypted data to the responsible KRA
+            send_to_kra(i, inner_encrypted_data)
 
             # Wait for KRA to return the KRF-i decrypted and re-encrypted with KRC's public key
             encrypted_krf_i = receive_from_kra(i)

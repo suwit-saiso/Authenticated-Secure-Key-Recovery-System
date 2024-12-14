@@ -109,7 +109,7 @@ def recover_session_key(krf,session_id):
     challenge_code, challenge_verifier = generate_pkce_challenge()
     
     # Add current timestamp
-    timestamp = time.time()  
+    timestamp = int(time.time())  
     
     # Prepare key recovery request to KRC
     recovery_request = {

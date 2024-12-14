@@ -90,7 +90,7 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, session_id):
     sgn = os.urandom(16)  # Shared Group Number
     num_kras = len(kra_public_keys)
     key_shares = split_session_key_xor(session_key, num_kras)  # Split session key
-    timestamp = time.time()  # Add current timestamp
+    timestamp = int(time.time())  # Add current timestamp
 
     # Include session_id and timestamp
     session_info = {"session_id": session_id, "timestamp": timestamp}
