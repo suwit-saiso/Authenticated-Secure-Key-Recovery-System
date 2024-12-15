@@ -118,7 +118,7 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, session_id):
 # Send data to Receiver
 def send_to_receiver(data):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect(("receiver_ip", 5001))  # Replace with Receiver's Docker IP and port
+        s.connect(('0.0.0.0', 5001))  # Replace with Receiver's Docker IP and port
         s.sendall(data)
         response = s.recv(1024)
     return response

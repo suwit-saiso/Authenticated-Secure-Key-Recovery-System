@@ -167,12 +167,11 @@ def collect_key_shares_and_assemble(encrypted_krf_i_list):
     return session_key
 
 # Encrypt the session key for the receiver and return it
-def encrypt_and_send_session_key(session_key):
+def encrypt_session_key(session_key):
     encrypted_session_key = receiver_public_key.encrypt(
         session_key,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
-    # Send the encrypted session key back to the receiver (not implemented)
     return encrypted_session_key
 
 #====================== Utility Functions ======================
@@ -247,12 +246,14 @@ def handle_kra_failure():
     # Implement SFM-KRS specific recovery (e.g., redundant shares or recovery mechanism)
     pass
 
-@app.route('/receive_request', methods=['POST'])
-def receive_request():
-    data = request.get_json()
-    encrypted_request = bytes.fromhex(data['encrypted_request'])
 
+def receive_request(client_socket):
     try:
+        # Receive data
+        data = client_socket.recv(4096)
+        if not data:
+            return
+        encrypted_request = bytes.fromhex(data['encrypted_request'])
         # Step 1: Receive and decrypt the request
         krf, requester_challenge_verifier, request_session_id, request_timestamp = receive_and_decrypt_request(encrypted_request)
         krf_data = decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
@@ -264,12 +265,26 @@ def receive_request():
         session_key = collect_key_shares_and_assemble(encrypted_krf_i_list)
 
         # Step 4: Encrypt the session key and send it back to the Receiver
-        encrypted_session_key = encrypt_and_send_session_key(session_key)
-        return jsonify({"status": "success", "encrypted_session_key": encrypted_session_key.hex()})
+        encrypted_session_key = encrypt_session_key(session_key)
+        client_socket.send(json.dumps(encrypted_session_key).encode('utf-8'))
 
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
-    
+        error_response = {"status": "error", "message": str(e)}
+        client_socket.send(json.dumps(error_response).encode('utf-8'))
+    finally:
+        client_socket.close()
+
 #========================= Main =========================
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5002)
+def main():
+    Receiver_PORT = 5001
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(("0.0.0.0", Receiver_PORT))
+    server_socket.listen(5)
+    print(f"Receiver listening on port {Receiver_PORT}")
+    
+    while True:
+        client_socket, _ = server_socket.accept()
+        receive_request(client_socket)
+
+if __name__ == "__main__":
+    main()
