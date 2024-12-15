@@ -1,21 +1,14 @@
-from flask import Flask, request, jsonify
+import socket
+import json
+import struct
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives.kdf.x963kdf import X963KDF
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import serialization
 import os
-import time
-import requests
 import hashlib
-import json
+import time
 
 #========================= Setup =========================
-# Initialize Flask app
-app = Flask(__name__)
-
 # Load keys
 def load_private_key(file_path):
     with open(file_path, "rb") as key_file:
@@ -116,8 +109,14 @@ def distribute_krf_to_kras(krf, kra_public_keys):
             kra_response = receive_from_kra(i)
             kra_challenge_verifier = kra_response["challenge_verifier"]
 
+            # decrypt challenge verifier
+            inner_kra_challenge_verifier = krc_private_key.decrypt(
+                kra_challenge_verifier,
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+            )
+
             # Compare challenge verifiers
-            if kra_challenge_verifier != challenge_verifier:
+            if inner_kra_challenge_verifier != challenge_verifier:
                 print(f"KRA-{i} verification failed.")
                 handle_failed_kra(i)  # Handle failure scenario
                 continue
@@ -178,27 +177,68 @@ def encrypt_and_send_session_key(session_key):
 
 #====================== Utility Functions ======================
 
-# Utility functions (placeholders) for communication with KRAs
+# Utility functions for communication with KRAs
 def send_to_kra(kra_index, encrypted_data):
-    url = f"http://kra-{kra_index}:5003/process"
-    response = requests.post(url, json={"encrypted_data": encrypted_data.hex()})
-    if response.status_code != 200:
-        raise ValueError(f"Failed to send data to KRA-{kra_index}")
-    return response.json()
+    """
+    Send data to a KRA using a socket connection.
+    """
+    host = "0.0.0.0"
+    port = 5003 + kra_index  # Each KRA gets a unique port starting from 5003.
+    
+    try:
+        # Create a socket connection
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect((host, port))  # Connect to the KRA server
+            
+            # Prepare data
+            message = json.dumps({"encrypted_data": encrypted_data.hex()})
+            
+            # Send the length of the message first
+            message_length = len(message).to_bytes(4, 'big')
+            sock.sendall(message_length + message.encode('utf-8'))
+            
+            # Wait for a response
+            response_length = int.from_bytes(sock.recv(4), 'big')
+            response_data = sock.recv(response_length).decode('utf-8')
+            
+        # Return the response
+        return json.loads(response_data)
+    except Exception as e:
+        raise ValueError(f"Failed to send data to KRA-{kra_index}: {str(e)}")
 
 def receive_from_kra(kra_index):
-    url = f"http://kra-{kra_index}:5003/retrieve"
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise ValueError(f"Failed to receive data from KRA-{kra_index}")
-    return response.json()
+    """
+    Receive data from a KRA using a socket connection.
+    """
+    host = "0.0.0.0"
+    port = 5003 + kra_index  # Each KRA gets a unique port starting from 5003.
+    
+    try:
+        # Create a socket connection
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect((host, port))  # Connect to the KRA server
+            
+            # Request data (you might need to define a specific request format)
+            message = json.dumps({"action": "retrieve"})
+            message_length = len(message).to_bytes(4, 'big')
+            sock.sendall(message_length + message.encode('utf-8'))
+            
+            # Wait for a response
+            response_length = int.from_bytes(sock.recv(4), 'big')
+            response_data = sock.recv(response_length).decode('utf-8')
+        
+        # Return the response
+        return json.loads(response_data)
+    except Exception as e:
+        raise ValueError(f"Failed to receive data from KRA-{kra_index}: {str(e)}")
 
 # Function to handle individual KRA failures
-def handle_failed_kra(i):
-    print(f"Handling failure for KRA-{i}. Retrying...")
-    # Retry mechanism or log failure for recovery later
-    # You can implement a limited retry mechanism or fallback
-    pass
+def handle_failed_kra(kra_index, attempt=1, max_retries=3):
+    if attempt > max_retries:
+        print(f"KRA-{kra_index} failed after {max_retries} retries.")
+        return False
+    print(f"Retrying communication with KRA-{kra_index} (Attempt {attempt}/{max_retries})...")
+    return True  # Retry logic or fallback mechanism
 
 # Function to handle failure in the overall KRA key shares collection
 def handle_kra_failure():

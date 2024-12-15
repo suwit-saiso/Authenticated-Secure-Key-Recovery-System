@@ -22,7 +22,7 @@ def load_public_key(file_path):
 KRA_ID = os.getenv("KRA_ID", "kra1")  # e.g., kra1, kra2, ...
 PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY_PATH", f"./keys/{KRA_ID}_private.pem")
 PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY_PATH", f"./keys/krc_public.pem")
-LISTEN_PORT = int(os.getenv("LISTEN_PORT", 5000))  # Each KRA has a unique port
+LISTEN_PORT = int(os.getenv("LISTEN_PORT", 5003))  # Each KRA has a unique port
 
 # Load keys
 kra_private_key = load_private_key(PRIVATE_KEY_PATH)
