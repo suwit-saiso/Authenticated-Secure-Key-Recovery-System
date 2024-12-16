@@ -1,0 +1,14 @@
+# Use the official Python image as the base
+FROM python:3.9-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy the GenKey.py script
+COPY GenKey.py /app/GenKey.py
+
+# Install required Python packages
+RUN pip install --no-cache-dir cryptography
+
+# Command to execute the key generation script
+CMD ["python", "GenKey.py"]

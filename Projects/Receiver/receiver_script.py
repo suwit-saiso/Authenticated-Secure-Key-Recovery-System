@@ -27,14 +27,15 @@ def load_public_key(file_path):
 
 #========================= Setup =========================
 # Load Receiver's private key and public key
-receiver_private_key = load_private_key("receiver_private_key.pem")
-receiver_public_key = load_public_key("receiver_public_key.pem")
+receiver_private_key = load_private_key("../keys/receiver_private_key.pem")
+receiver_public_key = load_public_key("../keys/receiver_public.pem")
+
 
 # Load Sender's public key
-sender_public_key = load_public_key("sender_public_key.pem")
+sender_public_key = load_public_key("../Shared/keys/sender_public.pem")
 
 # Load KRC's public key
-krc_public_key = load_public_key("krc_public_key.pem")
+krc_public_key = load_public_key("../Shared/keys/krc_public.pem")
 
 # Dictionary to store session IDs and corresponding session keys
 sessions = {}
@@ -113,20 +114,23 @@ def recover_session_key(krf,session_id):
     
     # Prepare key recovery request to KRC
     recovery_request = {
-        'krf': krf,
-        'challenge_verifier': challenge_verifier,
+        'krf': krf, # KRF should now be a dictionary, not a string or byte
+        'challenge_verifier': challenge_verifier.hex(),  # Convert byte data to string (hex) for JSON compatibility
         'session_id':session_id,
         'timestamp': timestamp
         # Include any other necessary information
     }
     
+    # Serialize recovery request to JSON
+    json_request = json.dumps(recovery_request)
+
     # Encrypt the recovery request with KRC's public key
     encrypted_request = krc_public_key.encrypt(
-        str(recovery_request).encode(),
+        json_request.encode(),  # Encode JSON string to bytes
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
     
-    # Send the encrypted request to the KRC (implementation of send_to_krc needed)
+    # Send the encrypted request to the KRC
     send_to_krc(encrypted_request)
 
     # Simulate receiving response from KRC
@@ -152,25 +156,56 @@ def recover_session_key(krf,session_id):
     else:
         return "Request denied"
 
-# Send encrypted data to KRC (Placeholder function)
+# Session Cleanup
+def cleanup_sessions():
+    current_time = int(time.time())
+    expired_sessions = [session_id for session_id, session in sessions.items() if current_time - session.get("timestamp", current_time) > 3600]
+    for session_id in expired_sessions:
+        del sessions[session_id]
+        print(f"Session {session_id} expired and removed.")
+
+# Send encrypted data to KRC
 def send_to_krc(data):
-     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((KRC_HOST, KRC_PORT))
-        s.sendall(json.dumps(data).encode())
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(10)  # Set a 10-second timeout
+            s.connect((KRC_HOST, KRC_PORT))
+            s.sendall(data)
+    except socket.timeout:
+        print("Timeout while sending data to KRC")
+    except Exception as e:
+        print(f"Error in send_to_krc: {e}")
 
-# Receive response from KRC (Placeholder function)
+
+# Receive response from KRC 
 def receive_response_from_krc():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((KRC_HOST, KRC_PORT))
-        response = s.recv(1024)
-        return json.loads(response.decode())
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(10)  # Set a 10-second timeout
+            s.connect((KRC_HOST, KRC_PORT))
+            response = s.recv(1024)
+            return json.loads(response.decode())
+    except socket.timeout:
+        print("Timeout while waiting for response from KRC")
+        return {"error": "Timeout"}
+    except Exception as e:
+        print(f"Error in receive_response_from_krc: {e}")
+        return {"error": str(e)}
 
-# Receive session key from KRC (Placeholder function)
+# Receive session key from KRC 
 def receive_from_krc():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((KRC_HOST, KRC_PORT))
-        new_session_key = s.recv(1024)
-        return new_session_key
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(10)  # Set a 10-second timeout
+            s.connect((KRC_HOST, KRC_PORT))
+            new_session_key = s.recv(1024)
+            return new_session_key
+    except socket.timeout:
+        print("Timeout while waiting for session key from KRC")
+        return None
+    except Exception as e:
+        print(f"Error in receive_from_krc: {e}")
+        return None
     
 # ฟังก์ชั่นสำหรับสร้าง session ใหม่
 def establish_session(session_id, session_key, krf, iv, encrypted_message):
@@ -264,8 +299,11 @@ def manual_test():
 
         # Take the latest session_id
         latest_session_id = list(sessions.keys())[-1]
-        session = sessions[latest_session_id]
+        session = sessions.get(latest_session_id)
 
+        if not session:
+            return jsonify({"message": "No active session found"}), 404
+        
         # Simulate session key loss
         session_key = session.pop("session_key", None)
         if not session_key:
@@ -275,6 +313,11 @@ def manual_test():
         iv = session["iv"]
         encrypted_message = session["encrypted_message"]
         response = receive_from_sender(latest_session_id, iv, encrypted_message)
+        
+        # Restore the session key to avoid disrupting normal operations
+        if "session_key_used" in response:
+            session["session_key"] = session_key
+
         return jsonify({"message": response})
     return jsonify({"message": "Invalid command"}), 400
 
