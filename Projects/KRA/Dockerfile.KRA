@@ -1,0 +1,29 @@
+# Use a lightweight Python base image
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy generic script
+COPY kra_script.py ./kra.py
+
+# Copy the specific KRA folder (dynamically adjusted during the build)
+# The ARG KRA_DIR will allow dynamic selection of the correct KRA subfolder (e.g., kra1, kra2, etc.)
+ARG KRA_DIR=kra1
+COPY ${KRA_DIR}/keys ./keys/
+
+# Install required Python libraries
+RUN pip install --no-cache-dir cryptography
+
+# Set environment variables dynamically
+# The KRA_DIR is used here to load the private key and set the correct port
+ENV KRA_ID=${KRA_DIR} \
+    PRIVATE_KEY_PATH=./${KRA_ID}/keys/${KRA_ID}_private.pem \
+    PUBLIC_KEY_PATH=./Shared/keys/krc_public.pem \
+    LISTEN_PORT=5003
+
+# Expose port dynamically based on the KRA
+EXPOSE ${LISTEN_PORT}
+
+# Run the KRA script
+CMD ["python", "./kra.py"]
