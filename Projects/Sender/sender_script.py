@@ -19,18 +19,18 @@ def load_public_key(file_path):
         return serialization.load_pem_public_key(key_file.read())
 
 # Load Sender's private and public keys
-sender_private_key = load_private_key("sender_private_key.pem")
-sender_public_key = load_public_key("sender_public_key.pem")
+sender_private_key = load_private_key("../keys/sender_private.pem")
+sender_public_key = load_public_key("../keys/sender_public.pem")
 
 # Load Receiver's public key
-receiver_public_key = load_public_key("receiver_public_key.pem")
+receiver_public_key = load_public_key("../Shared/keys/receiver_public.pem")
 
 # Load KRC's public key
-krc_public_key = load_public_key("krc_public_key.pem")
+krc_public_key = load_public_key("../Shared/keys/krc_public.pem")
 
 # Load KRAs' public keys
 kra_public_keys = [
-    load_public_key(f"kra{i}_public_key.pem") for i in range(1, 6)
+    load_public_key(f"../Shared/keys/kra{i}_public.pem") for i in range(1, 6)
 ]
 
 #========================= Utility Functions =========================
@@ -95,7 +95,7 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, session_id):
     # Include session_id and timestamp
     session_info = {"session_id": session_id, "timestamp": timestamp}
     encrypted_session_info = krc_public_key.encrypt(
-        str(session_info).encode(),
+        json.dumps(session_info).encode(),
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
     krf["session_info"] = encrypted_session_info
@@ -104,9 +104,9 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, session_id):
     for i, kra_public_key in enumerate(kra_public_keys):
         si = key_shares[i]
         tti = xor(si, sgn)  # TTi = Si XOR SGN
-        krf_i = {"Si": si, "SGN": sgn, "TTi": tti}
+        krf_i = {"Si": si.hex(), "SGN": sgn.hex(), "TTi": tti.hex()}
         krf_i_encrypted = kra_public_key.encrypt(
-            str(krf_i).encode(),
+            json.dumps(krf_i).encode(),
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
         krf[f"KRF-{i}"] = krc_public_key.encrypt(
@@ -117,11 +117,14 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, session_id):
 
 # Send data to Receiver
 def send_to_receiver(data):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect(('0.0.0.0', 5001))  # Replace with Receiver's Docker IP and port
-        s.sendall(data)
-        response = s.recv(1024)
-    return response
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect(('receiver', 5001))  # Use Docker service name need update here 0.0.0.0
+            s.sendall(data)
+            response = s.recv(1024)
+        return response
+    except Exception as e:
+        return f"Error communicating with Receiver: {e}".encode()
 
 #========================= Session Manager =========================
 current_session = {
