@@ -1,15 +1,30 @@
+# Use an official Python base image
 FROM python:3.9-slim
 
-# Install dependencies
-RUN apt-get update && apt-get install -y iputils-ping
-
-# Install Python dependencies
-RUN pip install flask
-
-# Copy application code to the container
+# Set the working directory inside the container
 WORKDIR /app
-COPY ./app.py /app
 
-# Expose port and run app
-EXPOSE 5000
-CMD ["python", "app.py"]
+# Install necessary system dependencies (e.g., OpenSSL for cryptography)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libssl-dev \
+    libffi-dev \
+    python3-dev \
+    && apt-get clean
+
+# Install required Python libraries
+RUN pip install --no-cache-dir \
+    cryptography \
+    pycryptodome \
+    socketio
+
+# Copy the krc_script.py and other necessary files into the container
+COPY krc_script.py /app/
+COPY keys /app/keys/
+COPY Shared/keys /app/Shared/keys/
+
+# Expose the port that the server will listen on
+EXPOSE 5002
+
+# Command to run the krc_script.py when the container starts
+CMD ["python", "krc_script.py"]

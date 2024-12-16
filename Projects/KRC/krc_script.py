@@ -21,14 +21,14 @@ def load_public_key(file_path):
     return public_key
 
 # Load KRC's private key
-krc_private_key = load_private_key("krc_private_key.pem")
+krc_private_key = load_private_key("../keys/krc_private_key.pem")
 
 # Load Receiver's public key
-receiver_public_key = load_public_key("receiver_public_key.pem")
+receiver_public_key = load_public_key("../Shared/keys/receiver_public_key.pem")
 
 # Load KRAs' public keys
 kra_public_keys = [
-    load_public_key(f"kra{i}_public_key.pem") for i in range(1, 6)
+    load_public_key(f"../Shared/keys/kra{i}_public.pem") for i in range(1, 6)
 ]
 
 # Store KRA challenge verifiers
