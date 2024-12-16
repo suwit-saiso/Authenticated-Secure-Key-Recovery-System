@@ -26,6 +26,7 @@ Projects/
 │
 ├── KRA/
 │   ├── Dockerfile.KRA
+│   ├── kra_script.py
 │   ├── kra1/
 │   │   ├── kra1.py
 │   │   └── keys/
