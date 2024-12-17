@@ -4,7 +4,7 @@ import os
 
 # Base folders
 SHARED_KEYS_FOLDER = "./Shared/keys"
-CONTAINERS_FOLDER = "./"
+CONTAINERS_FOLDER = "./Projects"
 
 # List of entities to generate keys for
 ENTITIES = ["sender", "receiver", "krc", "kra1", "kra2", "kra3", "kra4", "kra5"]
