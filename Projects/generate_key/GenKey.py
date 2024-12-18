@@ -52,8 +52,13 @@ def main():
     ensure_folder_exists(SHARED_KEYS_FOLDER)
     
     for entity in ENTITIES:
-        # Define paths for entity-specific folders
-        entity_folder = os.path.join(CONTAINERS_FOLDER, entity, "keys")
+        # Special case: If entity is one of kra1 to kra5, place them inside the KRA folder
+        if entity.startswith("kra"):
+            entity_folder = os.path.join(CONTAINERS_FOLDER, "KRA", entity, "keys")
+        else:
+            # For all other entities, use their own folder directly under the parent folder
+            entity_folder = os.path.join(CONTAINERS_FOLDER, entity, "keys")
+        
         shared_public_key_path = os.path.join(SHARED_KEYS_FOLDER, f"{entity}_public.pem")
         entity_private_key_path = os.path.join(entity_folder, f"{entity}_private.pem")
         entity_public_key_path = os.path.join(entity_folder, f"{entity}_public.pem")
