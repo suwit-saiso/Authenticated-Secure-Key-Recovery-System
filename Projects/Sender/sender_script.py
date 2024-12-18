@@ -18,20 +18,41 @@ def load_public_key(file_path):
     with open(file_path, "rb") as key_file:
         return serialization.load_pem_public_key(key_file.read())
 
-# Load Sender's private and public keys
-sender_private_key = load_private_key("../keys/sender_private.pem")
-sender_public_key = load_public_key("../keys/sender_public.pem")
+# Get the directory of the current script
+script_dir = os.path.abspath(os.path.dirname(__file__))
 
-# Load Receiver's public key
-receiver_public_key = load_public_key("../Shared/keys/receiver_public.pem")
+# Paths for Sender's private and public keys (in the same level as script)
+sender_private_key_path = os.path.join(script_dir, "keys", "sender_private.pem")
+sender_public_key_path = os.path.join(script_dir, "keys", "sender_public.pem")
 
-# Load KRC's public key
-krc_public_key = load_public_key("../Shared/keys/krc_public.pem")
+# Paths for Shared folder keys (parallel to the Sender folder)
+shared_keys_dir = os.path.abspath(os.path.join(script_dir, "../Shared/keys"))
+receiver_public_key_path = os.path.join(shared_keys_dir, "receiver_public.pem")
+krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
 
-# Load KRAs' public keys
-kra_public_keys = [
-    load_public_key(f"../Shared/keys/kra{i}_public.pem") for i in range(1, 6)
+kra_public_key_paths = [
+    os.path.join(shared_keys_dir, f"kra{i}_public.pem") for i in range(1, 6)
 ]
+
+# # Debug print to confirm paths
+# print("Sender Private Key Path:", sender_private_key_path)
+# print("Sender Public Key Path:", sender_public_key_path)
+# print("Receiver Public Key Path:", receiver_public_key_path)
+# print("KRC Public Key Path:", krc_public_key_path)
+# print("KRA Public Key Paths:", kra_public_key_paths)
+
+# Load keys with error checking
+try:
+    sender_private_key = load_private_key(sender_private_key_path)
+    sender_public_key = load_public_key(sender_public_key_path)
+
+    receiver_public_key = load_public_key(receiver_public_key_path)
+    krc_public_key = load_public_key(krc_public_key_path)
+
+    kra_public_keys = [load_public_key(path) for path in kra_public_key_paths]
+
+except FileNotFoundError as e:
+    raise FileNotFoundError(f"Key file not found: {e}")
 
 #========================= Utility Functions =========================
 # Generate session key (AES key)

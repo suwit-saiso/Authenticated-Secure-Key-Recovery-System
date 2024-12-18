@@ -26,16 +26,27 @@ def load_public_key(file_path):
     return public_key
 
 #========================= Setup =========================
-# Load Receiver's private key and public key
-receiver_private_key = load_private_key("../keys/receiver_private_key.pem")
-receiver_public_key = load_public_key("../keys/receiver_public.pem")
+# Get the directory of the current script
+script_dir = os.path.abspath(os.path.dirname(__file__))
 
+# Paths for Receiver's private and public keys (in the same level as script)
+receiver_private_key_path = os.path.join(script_dir, "keys", "receiver_private.pem")
+receiver_public_key_path = os.path.join(script_dir, "keys", "receiver_public.pem")
 
-# Load Sender's public key
-sender_public_key = load_public_key("../Shared/keys/sender_public.pem")
+# Paths for Shared folder keys (parallel to the Sender folder)
+shared_keys_dir = os.path.abspath(os.path.join(script_dir, "../Shared/keys"))
+sender_public_key_path = os.path.join(shared_keys_dir, "sender_public.pem")
+krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
 
-# Load KRC's public key
-krc_public_key = load_public_key("../Shared/keys/krc_public.pem")
+# Load keys with error checking
+try:
+    receiver_private_key = load_private_key(receiver_private_key_path)
+    receiver_public_key = load_public_key(receiver_public_key_path)
+
+    sender_public_key = load_public_key(sender_public_key_path)
+    krc_public_key = load_public_key(krc_public_key_path)
+except FileNotFoundError as e:
+    raise FileNotFoundError(f"Key file not found: {e}")    
 
 # Dictionary to store session IDs and corresponding session keys
 sessions = {}

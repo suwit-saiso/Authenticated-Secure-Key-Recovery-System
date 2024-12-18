@@ -20,16 +20,31 @@ def load_public_key(file_path):
         public_key = serialization.load_pem_public_key(key_file.read())
     return public_key
 
-# Load KRC's private key
-krc_private_key = load_private_key("../keys/krc_private_key.pem")
+# Get the directory of the current script
+script_dir = os.path.abspath(os.path.dirname(__file__))
 
-# Load Receiver's public key
-receiver_public_key = load_public_key("../Shared/keys/receiver_public_key.pem")
+# Paths for KRC's private and public keys (in the same level as script)
+krc_private_key_path = os.path.join(script_dir, "keys", "krc_private.pem")
+krc_public_key_path = os.path.join(script_dir, "keys", "krc_public.pem")
 
-# Load KRAs' public keys
-kra_public_keys = [
-    load_public_key(f"../Shared/keys/kra{i}_public.pem") for i in range(1, 6)
+# Paths for Shared folder keys (parallel to the Sender folder)
+shared_keys_dir = os.path.abspath(os.path.join(script_dir, "../Shared/keys"))
+receiver_public_key_path = os.path.join(shared_keys_dir, "receiver_public.pem")
+
+kra_public_key_paths = [
+    os.path.join(shared_keys_dir, f"kra{i}_public.pem") for i in range(1, 6)
 ]
+
+# Load keys with error checking
+try:
+    krc_private_key = load_private_key(krc_private_key_path)
+    krc_public_key = load_public_key(krc_public_key_path)
+
+    receiver_public_key = load_public_key(receiver_public_key_path)
+
+    kra_public_keys = [load_public_key(path) for path in kra_public_key_paths]
+except FileNotFoundError as e:
+    raise FileNotFoundError(f"Key file not found: {e}")
 
 # Store KRA challenge verifiers
 kra_challenge_verifiers = {}

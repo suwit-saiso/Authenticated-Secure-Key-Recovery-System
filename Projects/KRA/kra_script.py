@@ -18,15 +18,27 @@ def load_public_key(file_path):
         public_key = serialization.load_pem_public_key(key_file.read())
     return public_key
 
-# Get environment variables or defaults
-KRA_ID = os.getenv("KRA_ID", "kra1")  # e.g., kra1, kra2, ...
-PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY_PATH", f"./{KRA_ID}/keys/{KRA_ID}_private.pem")
-PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY_PATH", f"./../Shared/keys/krc_public.pem")
-LISTEN_PORT = int(os.getenv("LISTEN_PORT", 5003))  # Each KRA has a unique port
+# Get the directory of the current script (to use as base path)
+script_dir = os.path.abspath(os.path.dirname(__file__))
 
-# Load keys
-kra_private_key = load_private_key(PRIVATE_KEY_PATH)
-krc_public_key = load_public_key(PUBLIC_KEY_PATH)
+# Dynamically determine KRA ID from the folder name or environment variable
+KRA_ID = os.getenv("KRA_ID", os.path.basename(script_dir))  # e.g., kra1, kra2, ...
+
+# Paths for private key (within the current KRA folder) and shared public key
+private_key_path = os.path.join(script_dir, "keys", f"{KRA_ID}_private.pem")
+shared_keys_dir = os.path.abspath(os.path.join(script_dir, "../../Shared/keys"))
+krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
+
+# Port for the KRA (defaults to 5003, or can be set per KRA using an env variable)
+LISTEN_PORT = int(os.getenv("LISTEN_PORT", 5003 + int(KRA_ID[-1]) - 1))  # Ports 5003, 5004, etc.
+
+# Load keys with error handling
+try:
+    kra_private_key = load_private_key(private_key_path)
+    krc_public_key = load_public_key(krc_public_key_path)
+except FileNotFoundError as e:
+    raise FileNotFoundError(f"Key file not found: {e}")
+
 
 def decrypt_message(encrypted_message):
     return kra_private_key.decrypt(
