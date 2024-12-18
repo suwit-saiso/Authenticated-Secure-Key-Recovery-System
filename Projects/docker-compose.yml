@@ -16,13 +16,19 @@ services:
       - ./KRA/kra4/keys:/KRA/kra4/keys
       - ./KRA/kra5/keys:/KRA/kra5/keys
     command: ["python", "GenKey.py"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; assert os.path.exists('/Shared/keys/sender_public.pem')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   sender:
     build:
       context: ./Sender
       dockerfile: Dockerfile.sender
     depends_on:
-      - genkeys
+      genkeys:
+        condition: service_healthy
     ports:
       - "5000:5000"
     volumes:
@@ -34,7 +40,8 @@ services:
       context: ./Receiver
       dockerfile: Dockerfile.receiver
     depends_on:
-      - genkeys
+      genkeys:
+        condition: service_healthy
     ports:
       - "5001:5001"
     volumes:
@@ -46,69 +53,28 @@ services:
       context: ./KRC
       dockerfile: Dockerfile.KRC
     depends_on:
-      - genkeys
+      genkeys:
+        condition: service_healthy
     ports:
       - "5002:5002"
     volumes:
       - ./KRC/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
 
-  kra1:
+  kra:
     build:
-      context: ./KRA/kra1
+      context: ./KRA
       dockerfile: Dockerfile.KRA
     depends_on:
-      - genkeys
+      genkeys:
+        condition: service_healthy
     ports:
-      - "5003:5003"
+      - "5003-5007:5003-5007"
     volumes:
-      - ./KRA/kra1/keys:/app/keys
+      - ./KRA/kra1/keys:/app/kra1/keys
+      - ./KRA/kra2/keys:/app/kra2/keys
+      - ./KRA/kra3/keys:/app/kra3/keys
+      - ./KRA/kra4/keys:/app/kra4/keys
+      - ./KRA/kra5/keys:/app/kra5/keys
       - ./Shared/keys:/app/Shared/keys
-
-  kra2:
-    build:
-      context: ./KRA/kra2
-      dockerfile: Dockerfile.KRA
-    depends_on:
-      - genkeys
-    ports:
-      - "5004:5004"
-    volumes:
-      - ./KRA/kra2/keys:/app/keys
-      - ./Shared/keys:/app/Shared/keys
-
-  kra3:
-    build:
-      context: ./KRA/kra3
-      dockerfile: Dockerfile.KRA
-    depends_on:
-      - genkeys
-    ports:
-      - "5005:5005"
-    volumes:
-      - ./KRA/kra3/keys:/app/keys
-      - ./Shared/keys:/app/Shared/keys
-
-  kra4:
-    build:
-      context: ./KRA/kra4
-      dockerfile: Dockerfile.KRA
-    depends_on:
-      - genkeys
-    ports:
-      - "5006:5006"
-    volumes:
-      - ./KRA/kra4/keys:/app/keys
-      - ./Shared/keys:/app/Shared/keys
-
-  kra5:
-    build:
-      context: ./KRA/kra5
-      dockerfile: Dockerfile.KRA
-    depends_on:
-      - genkeys
-    ports:
-      - "5007:5007"
-    volumes:
-      - ./KRA/kra5/keys:/app/keys
-      - ./Shared/keys:/app/Shared/keys
+    command: ["/bin/sh", "-c", "python3 kra_script.py && python3 kra1/kra1.py && python3 kra2/kra2.py && python3 kra3/kra3.py && python3 kra4/kra4.py && python3 kra5/kra5.py"]
