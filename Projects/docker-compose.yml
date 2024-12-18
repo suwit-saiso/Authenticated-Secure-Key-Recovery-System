@@ -24,11 +24,11 @@ services:
 
   sender:
     build:
-      context: ./Sender
-      dockerfile: Dockerfile.sender
+      context: .
+      dockerfile: Sender/Dockerfile.sender
     depends_on:
       genkeys:
-        condition: service_healthy
+        condition: service_completed_successfully
     ports:
       - "5000:5000"
     volumes:
@@ -41,7 +41,7 @@ services:
       dockerfile: Dockerfile.receiver
     depends_on:
       genkeys:
-        condition: service_healthy
+        condition: service_completed_successfully
     ports:
       - "5001:5001"
     volumes:
@@ -50,11 +50,11 @@ services:
 
   krc:
     build:
-      context: ./KRC
-      dockerfile: Dockerfile.KRC
+      context: .
+      dockerfile: KRC/Dockerfile.KRC
     depends_on:
       genkeys:
-        condition: service_healthy
+        condition: service_completed_successfully
     ports:
       - "5002:5002"
     volumes:
@@ -67,7 +67,7 @@ services:
       dockerfile: Dockerfile.KRA
     depends_on:
       genkeys:
-        condition: service_healthy
+        condition: service_completed_successfully
     ports:
       - "5003-5007:5003-5007"
     volumes:

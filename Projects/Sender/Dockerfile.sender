@@ -19,13 +19,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir flask cryptography
 
 # Copy the Sender Python script
-COPY sender.py /app/sender.py
+COPY Sender/sender_script.py /app/sender.py
 
 # Copy Sender's keys
-COPY keys /app/keys
+COPY Sender/keys /app/keys
 
 # Copy shared keys
-COPY ../Shared/keys /app/Shared/keys
+COPY ./Shared/keys /app/Shared/keys
 
 # Expose the port the Flask app runs on
 EXPOSE 5000
