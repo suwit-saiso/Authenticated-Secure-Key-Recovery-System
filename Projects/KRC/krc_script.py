@@ -291,11 +291,11 @@ def receive_request(client_socket):
 
 #========================= Main =========================
 def main():
-    Receiver_PORT = 5001
+    KRC_PORT = 5002
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(("0.0.0.0", Receiver_PORT))
+    server_socket.bind(("0.0.0.0", KRC_PORT))
     server_socket.listen(5)
-    print(f"Receiver listening on port {Receiver_PORT}")
+    print(f"KRC listening on port {KRC_PORT}")
     
     while True:
         client_socket, _ = server_socket.accept()
