@@ -2,18 +2,13 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 import os
 
-# Base folders
-# Base folder relative to the script location
+# Base folder: the parent directory of `generate_key`
 BASE_FOLDER = os.path.dirname(os.path.abspath(__file__))  # Path to `generate_key`
-PROJECTS_FOLDER = os.path.join(BASE_FOLDER, "../Projects")  # Path to sibling folder `Projects`
+PARENT_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, ".."))  # Path to parent folder
 
-
-# Shared keys folder and containers folder inside `Projects`
-SHARED_KEYS_FOLDER = os.path.join(PROJECTS_FOLDER, "Shared/keys")
-CONTAINERS_FOLDER = PROJECTS_FOLDER
-
-# SHARED_KEYS_FOLDER = "./Projects/Shared/keys"
-# CONTAINERS_FOLDER = "./Projects/"
+# Shared keys folder and containers folder inside the parent folder
+SHARED_KEYS_FOLDER = os.path.join(PARENT_FOLDER, "Shared/keys")
+CONTAINERS_FOLDER = PARENT_FOLDER
 
 # List of entities to generate keys for
 ENTITIES = ["sender", "receiver", "krc", "kra1", "kra2", "kra3", "kra4", "kra5"]
