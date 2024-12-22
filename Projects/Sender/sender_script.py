@@ -222,8 +222,7 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
         print("Error encrypting session_info:", e)
         raise
 
-    print(f"Generated KRF: {len(krf)} components created successfully.")  # Log only metadata
-    print("Generated KRF:", krf)    
+    print(f"Generated KRF: {len(krf)} components created successfully.")  # Log only metadata  
     return krf
 
 # Send data to Receiver
@@ -252,32 +251,26 @@ def handle_message():
     data = request.json
     plaintext = data.get("message")
 
-    print(plaintext) 
-    payload = 'hi'
+    print("Input message: ",plaintext) 
 
     if not current_session["session_id"]:
-        print("I'm here")
+        print("Creating a Session...")
         # Perform first establishment
         session_id, session_key, encrypted_session_key, iv, encrypted_message, encrypted_krf, encrypted_aes_key, iv_aes = first_establishment(
             plaintext, receiver_public_key
         )
-        print("I'm here2")
+        print("Information created successfuly.")
+
         current_session["session_id"] = session_id
         current_session["session_key"] = session_key
-        print(current_session["session_id"])
-        print(current_session["session_key"])
-        print("session id:",session_id)
-        print("encrypted key:",encrypted_session_key.hex())
-        print('iv:',iv.hex())
-        print("encrypt message:",encrypted_message.hex())
-        print("encypt krf:",encrypted_krf)
-        print("I'm here3")
+        
+        print("beginning to prepare the payload...")
         payload = {
             "session_id": session_id,
             "encrypted_session_key": encrypted_session_key.hex(),
             "iv": iv.hex(),
             "encrypted_message": encrypted_message.hex(),
-            "encrypted_krf": encrypted_krf,
+            "encrypted_krf": encrypted_krf.hex(),
             "encrypted_AES_key": encrypted_aes_key.hex(),
             "iv_aes": iv_aes.hex()
         }
