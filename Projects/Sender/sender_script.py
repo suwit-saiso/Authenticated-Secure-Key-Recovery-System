@@ -7,7 +7,6 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 import uuid
 import time
-import zlib
 
 #========================= Key Setup =========================
 # Load keys directly
@@ -56,14 +55,6 @@ except FileNotFoundError as e:
     raise FileNotFoundError(f"Key file not found: {e}")
 
 #========================= Utility Functions =========================
-def compress_data(data: bytes) -> bytes:
-    """Compress the given data using zlib."""
-    return zlib.compress(data)
-
-def decompress_data(data: bytes) -> bytes:
-    """Decompress the given data using zlib."""
-    return zlib.decompress(data)
-
 # Generate session key (AES key)
 def generate_session_key():
     return os.urandom(32)  # AES 256-bit key
@@ -76,98 +67,162 @@ def encrypt_plaintext(plaintext, session_key):
     encrypted_message = encryptor.update(plaintext.encode()) + encryptor.finalize()
     return iv, encrypted_message
 
+def aes_encrypt(data, key, iv):
+    """
+    Encrypts data using AES-256 with CBC mode.
+
+    Args:
+        data (bytes): The plaintext data to encrypt.
+        key (bytes): The AES key.
+        iv (bytes): The initialization vector.
+
+    Returns:
+        bytes: The encrypted data.
+    """
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    encryptor = cipher.encryptor()
+    # Ensure data is padded to a multiple of block size (16 bytes for AES)
+    pad_len = 16 - (len(data) % 16)
+    padded_data = data + bytes([pad_len] * pad_len)
+    return encryptor.update(padded_data) + encryptor.finalize()
+
 # Encrypt session key and message for first establishment
 def first_establishment(plaintext, receiver_public_key):
+    """
+    Handles the first establishment of a secure communication session.
+
+    Args:
+        plaintext (str): The plaintext message to be sent.
+        receiver_public_key (object): The receiver's public RSA key.
+
+    Returns:
+        tuple: Contains session_id, session_key, encrypted_session_key, iv (for message), 
+               encrypted_message, encrypted_krf, encrypted_aes_key, iv_aes.
+    """
     session_id = str(uuid.uuid4())  # Generate a unique session ID for this communication
-    session_key = generate_session_key()
+    session_key = generate_session_key()  # Generate a session key for encryption
 
-    # Encrypt the session key with the receiver's public key
-    encrypted_session_key = receiver_public_key.encrypt(
-        session_key,
-        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-    )
+    try:
+        # Encrypt the session key with the receiver's public key
+        encrypted_session_key = receiver_public_key.encrypt(
+            session_key,
+            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+        )
+    except Exception as e:
+        print("Error encrypting session key:", e)
+        raise
 
-    # Encrypt the plaintext message with the session key
-    iv, encrypted_message = encrypt_plaintext(plaintext, session_key)
+    try:
+        # Encrypt the plaintext message with the session key (AES)
+        iv, encrypted_message = encrypt_plaintext(plaintext, session_key)
+    except Exception as e:
+        print("Error encrypting plaintext message:", e)
+        raise
 
-    # Generate KRF
-    krf = generate_krf(session_key, krc_public_key, kra_public_keys, session_id)
+    try:
+        # Generate KRF
+        krf = generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id)
+    except Exception as e:
+        print("Error generating KRF:", e)
+        raise
 
-    # # Encrypt the krf with the receiver public key
-    # encrypted_krf = receiver_public_key.encrypt(
-    #     krf,
-    #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-    # )
+    try:
+        # Generate an AES key for encrypting the KRF
+        aes_key = os.urandom(32)  # AES-256 key
+        iv_aes = os.urandom(16)  # IV for AES encryption
+        encrypted_krf = aes_encrypt(json.dumps(krf).encode(), aes_key, iv_aes)  # Encrypt the KRF with AES
+    except Exception as e:
+        print("Error encrypting KRF with AES:", e)
+        raise
 
-    # !!!DELETE AFTER!!!
-    encrypted_krf = krf
+    try:
+        # Encrypt the AES key with the receiver's public key
+        encrypted_aes_key = receiver_public_key.encrypt(
+            aes_key,
+            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+        )
+    except Exception as e:
+        print("Error encrypting AES key:", e)
+        raise
 
-    # Package the session_id, encrypted session key, IV, and encrypted message
-    return session_id, session_key, encrypted_session_key, iv, encrypted_message, encrypted_krf
+    # Package the session_id, encrypted session key, IVs, encrypted message, and KRF
+    return session_id, session_key, encrypted_session_key, iv, encrypted_message, encrypted_krf, encrypted_aes_key, iv_aes
+
 
 # Split session key into parts for KRF
 def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
 
-def split_session_key_xor(session_key, num_parts):
-    parts = [os.urandom(len(session_key)) for _ in range(num_parts - 1)]
-    last_part = session_key
-    for part in parts:
-        last_part = xor(last_part, part)
-    parts.append(last_part)
-    return parts
-
 # Generate KRF
-def generate_krf(session_key, krc_public_key, kra_public_keys, session_id):
+def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id):
     print("Generating KRF...")
     krf = {}
-    sgn = os.urandom(16)  # Shared Group Number
-    num_kras = len(kra_public_keys)
-    key_shares = split_session_key_xor(session_key, num_kras)  # Split session key
+    num_agents = len(kra_public_keys)
     timestamp = int(time.time())  # Add current timestamp
-
-    # Include session_id and timestamp
-    session_info = {"session_id": session_id, "timestamp": timestamp}
     
+    # Split the session key into Si and Sr
+    si_values = [os.urandom(32) for _ in range(num_agents - 1)]  # Generate all but the last Si
+    remaining_key = session_key
+    for si in si_values:
+        remaining_key = xor(remaining_key, si)  # Use the XOR function
+    sr = remaining_key  # The last part Sr ensures the XOR reconstructs the session key
+
+    # Generate Ri for SGN calculation
+    ri_values = [os.urandom(16) for _ in range(num_agents)]  # Ri for SGN calculation
+    sgn = ri_values[0]
+    for ri in ri_values[1:]:
+        sgn = xor(sgn, ri)  # SGN = R1 XOR R2 XOR ... Rn
+
+    # Construct KRF-i and TT-i
+    for i, (kra_key, si) in enumerate(zip(kra_public_keys, si_values + [sr]), start=1):
+        tti = xor(si, sgn)  # TTi = Si XOR SGN
+        krf_i = {'Si': si.hex(), 'SGN': sgn.hex()}
+
+        try:
+            # Encrypt KRF-i with the agent's public key
+            krf[f"KRF-{i}"] = kra_key.encrypt(
+                json.dumps(krf_i).encode(),
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+            ).hex()
+        except Exception as e:
+            print(f"Error encrypting KRF-{i}:", e)
+            raise
+
+        try:
+            # Encrypt TT-i with the KRC's public key
+            encrypted_tti = krc_public_key.encrypt(
+                tti,
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+            )
+            krf[f"TT-{i}"] = json.dumps({"TTi": encrypted_tti.hex()})  # Store in JSON format
+        except Exception as e:
+            print(f"Error encrypting TT-{i}:", e)
+            raise
+
     try:
-        encrypted_session_info = krc_public_key.encrypt(
-            json.dumps(session_info).encode(),
+        # Encrypt Sr with the receiver's public key
+        encrypted_sr = receiver_public_key.encrypt(
+            sr,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
-        krf["session_info"] = encrypted_session_info
+        krf["Sr"] = json.dumps({"Sr": encrypted_sr.hex()})  # Store in JSON format
+    except Exception as e:
+        print("Error encrypting Sr:", e)
+        raise
+
+    try:
+        # Add other session information, including session_id and timestamp
+        other_information = {"session_id": session_id, "timestamp": timestamp}
+        encrypted_info = krc_public_key.encrypt(
+            json.dumps(other_information).encode(),
+            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+        )
+        krf["OtherInformation"] = json.dumps({"Info": encrypted_info.hex()})  # Store in JSON format
     except Exception as e:
         print("Error encrypting session_info:", e)
         raise
 
-    # Encrypt KRF_i for each KRA
-    for i, kra_public_key in enumerate(kra_public_keys,start=1): # Start index at 1
-        try:
-            si = key_shares[i - 1] # Adjust for zero-based indexing
-            tti = xor(si, sgn) # TTi = Si XOR SGN
-            krf_i = {"Si": si.hex(), "SGN": sgn.hex(), "TTi": tti.hex()}
-            krf_i_serialized = json.dumps(krf_i).encode()
-
-            # Compress the serialized KRF-i data
-            compressed_krf_i = compress_data(krf_i_serialized)
-
-            # Encrypt with KRA public key
-            krf_i_encrypted = kra_public_key.encrypt(
-                compressed_krf_i,
-                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-            )
-            print(f"Size of KRF-{i} encrypted data: {len(krf_i_encrypted)} bytes")
-            print("KRC Public Key Type:", type(krc_public_key))
-            print("KRC Public Key Size (bits):", krc_public_key.key_size)
-            print("Size of krf_i_encrypted:", len(krf_i_encrypted))
-            print("Max RSA Size:", krc_public_key.key_size // 8 - 42)
-            # Encrypt with KRC public key
-            krf[f"KRF-{i}"] = krc_public_key.encrypt(
-                krf_i_encrypted,
-                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-            )
-        except Exception as e:
-            print(f"Error encrypting KRF-{i}:", e)
-            raise
+    print(f"Generated KRF: {len(krf)} components created successfully.")  # Log only metadata
     print("Generated KRF:", krf)    
     return krf
 
@@ -203,7 +258,7 @@ def handle_message():
     if not current_session["session_id"]:
         print("I'm here")
         # Perform first establishment
-        session_id, session_key, encrypted_session_key, iv, encrypted_message, encrypted_krf = first_establishment(
+        session_id, session_key, encrypted_session_key, iv, encrypted_message, encrypted_krf, encrypted_aes_key, iv_aes = first_establishment(
             plaintext, receiver_public_key
         )
         print("I'm here2")
@@ -222,7 +277,9 @@ def handle_message():
             "encrypted_session_key": encrypted_session_key.hex(),
             "iv": iv.hex(),
             "encrypted_message": encrypted_message.hex(),
-            "encrypted_krf": encrypted_krf
+            "encrypted_krf": encrypted_krf,
+            "encrypted_AES_key": encrypted_aes_key.hex(),
+            "iv_aes": iv_aes.hex()
         }
         print("Payload:", json.dumps(payload, indent=4))
     else:
