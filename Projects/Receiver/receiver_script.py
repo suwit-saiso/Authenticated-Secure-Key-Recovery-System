@@ -260,21 +260,25 @@ def handle_sender_connection(conn):
         encrypted_session_key = request.get('encrypted_session_key', None)
         encrypted_message = request.get('encrypted_message')
         iv = request.get('iv')
-        encrypted_krf = request.get('krf', None)
+        encrypted_krf = request.get('encrypted_krf', None)
+        encrypted_AES_key = request.get('encrypted_AES_key',None)
+        iv_AES = request.get("iv_aes",None)
 
         # Handle session establishment or recovery
         if session_id not in sessions:
             # Create a new session if session_id does not exist
             session_key = decrypt_session_key(encrypted_session_key)
             if encrypted_krf:
-                krf = receiver_private_key.decrypt(
-                    encrypted_krf,
+                # Decrypting KRF
+                AES_key = receiver_private_key.decrypt(
+                    encrypted_AES_key,
                     padding.OAEP(
                         mgf=padding.MGF1(algorithm=hashes.SHA256()),
                         algorithm=hashes.SHA256(),
                         label=None
                     )
                 )
+                krf = decrypt_plaintext(encrypted_krf, AES_key, iv_AES)
                 establish_session(session_id, session_key, krf, iv, encrypted_message)
 
         # Process message
@@ -298,6 +302,34 @@ def start_socket_server():
             conn, addr = server.accept()
             print(f"Connection from {addr}")
             threading.Thread(target=handle_sender_connection, args=(conn,)).start()
+
+#=========================== JSON payload test ======================================
+def load_payload_from_file(filename="payload.json"):
+    """
+    Load the payload from a file.
+
+    Args:
+        filename (str): The name of the file to load the payload from. Defaults to "payload.json".
+
+    Returns:
+        dict: The loaded payload.
+    """
+    try:
+        with open(filename, "r") as file:
+            payload = json.load(file)
+            # Convert hex strings back to bytes where necessary
+            processed_payload = {
+                key: (bytes.fromhex(value) if isinstance(value, str) and all(c in "0123456789abcdef" for c in value.lower()) else value)
+                for key, value in payload.items()
+            }
+            return processed_payload
+    except Exception as e:
+        print(f"Error loading payload from file: {e}")
+        raise
+
+# Disable after TEST PHASE
+payload = load_payload_from_file()
+print(payload)
 
 # Flask endpoint for manual testing
 @app.route('/manual_test', methods=['POST'])
