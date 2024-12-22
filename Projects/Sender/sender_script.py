@@ -236,6 +236,30 @@ def send_to_receiver(data):
     except Exception as e:
         return f"Error communicating with Receiver: {e}".encode()
 
+#========================= Test Payload ===========================
+def save_payload_to_file(payload, filename="payload.json"):
+    """
+    Save the given payload to a file in JSON format.
+
+    Args:
+        payload (dict): The payload to save.
+        filename (str): The name of the file to save the payload to. Defaults to "payload.json".
+    """
+    try:
+        # Ensure all bytes are converted to a JSON-serializable format
+        serialized_payload = {
+            key: (value.hex() if isinstance(value, bytes) else value)
+            for key, value in payload.items()
+        }
+
+        # Write serialized payload to a file
+        with open(filename, "w") as file:
+            json.dump(serialized_payload, file, indent=4)
+        print(f"Payload saved to {filename}")
+    except Exception as e:
+        print(f"Error saving payload to file: {e}")
+        raise
+
 #========================= Session Manager =========================
 current_session = {
     "session_id": None,
@@ -288,6 +312,9 @@ def handle_message():
             "encrypted_message": encrypted_message.hex()
         }
         print("Payload:", json.dumps(payload, indent=4))
+
+    # disable after TEST PHASE!!!
+    # save_payload_to_file(payload)
 
     # Send payload to Receiver
     response = send_to_receiver(json.dumps(payload).encode())
