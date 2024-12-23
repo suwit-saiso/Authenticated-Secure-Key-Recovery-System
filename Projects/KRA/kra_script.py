@@ -26,7 +26,7 @@ KRA_ID = os.getenv("KRA_ID", os.path.basename(script_dir))  # e.g., kra1, kra2, 
 
 # Paths for private key (within the current KRA folder) and shared public key
 private_key_path = os.path.join(script_dir, "keys", f"{KRA_ID}_private.pem")
-shared_keys_dir = os.path.abspath(os.path.join(script_dir, "../../Shared/keys"))
+shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
 krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
 
 # Port for the KRA (defaults to 5003, or can be set per KRA using an env variable)

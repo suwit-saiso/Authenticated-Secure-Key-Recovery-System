@@ -34,7 +34,7 @@ receiver_private_key_path = os.path.join(script_dir, "keys", "receiver_private.p
 receiver_public_key_path = os.path.join(script_dir, "keys", "receiver_public.pem")
 
 # Paths for Shared folder keys (parallel to the Sender folder)
-shared_keys_dir = os.path.abspath(os.path.join(script_dir, "../Shared/keys"))
+shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
 sender_public_key_path = os.path.join(shared_keys_dir, "sender_public.pem")
 krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
 
@@ -304,32 +304,32 @@ def start_socket_server():
             threading.Thread(target=handle_sender_connection, args=(conn,)).start()
 
 #=========================== JSON payload test ======================================
-def load_payload_from_file(filename="payload.json"):
-    """
-    Load the payload from a file.
+# def load_payload_from_file(filename="payload.json"):
+#     """
+#     Load the payload from a file.
 
-    Args:
-        filename (str): The name of the file to load the payload from. Defaults to "payload.json".
+#     Args:
+#         filename (str): The name of the file to load the payload from. Defaults to "payload.json".
 
-    Returns:
-        dict: The loaded payload.
-    """
-    try:
-        with open(filename, "r") as file:
-            payload = json.load(file)
-            # Convert hex strings back to bytes where necessary
-            processed_payload = {
-                key: (bytes.fromhex(value) if isinstance(value, str) and all(c in "0123456789abcdef" for c in value.lower()) else value)
-                for key, value in payload.items()
-            }
-            return processed_payload
-    except Exception as e:
-        print(f"Error loading payload from file: {e}")
-        raise
+#     Returns:
+#         dict: The loaded payload.
+#     """
+#     try:
+#         with open(filename, "r") as file:
+#             payload = json.load(file)
+#             # Convert hex strings back to bytes where necessary
+#             processed_payload = {
+#                 key: (bytes.fromhex(value) if isinstance(value, str) and all(c in "0123456789abcdef" for c in value.lower()) else value)
+#                 for key, value in payload.items()
+#             }
+#             return processed_payload
+#     except Exception as e:
+#         print(f"Error loading payload from file: {e}")
+#         raise
 
-# Disable after TEST PHASE
-payload = load_payload_from_file()
-print(payload)
+# # Disable after TEST PHASE
+# payload = load_payload_from_file()
+# print(payload)
 
 # Flask endpoint for manual testing
 @app.route('/manual_test', methods=['POST'])
