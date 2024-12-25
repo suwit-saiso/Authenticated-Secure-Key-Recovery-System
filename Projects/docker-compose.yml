@@ -77,4 +77,4 @@ services:
       - ./KRA/kra4/keys:/app/kra4/keys
       - ./KRA/kra5/keys:/app/kra5/keys
       - ./Shared/keys:/app/Shared/keys
-    command: ["/bin/sh", "-c", "python3 kra_script.py && python3 kra1/kra1.py && python3 kra2/kra2.py && python3 kra3/kra3.py && python3 kra4/kra4.py && python3 kra5/kra5.py"]
+    command: ["/bin/sh", "-c", "python3 kra.py && python3 kra1/kra1.py && python3 kra2/kra2.py && python3 kra3/kra3.py && python3 kra4/kra4.py && python3 kra5/kra5.py"]
