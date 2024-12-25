@@ -87,7 +87,7 @@ def aes_encrypt(data, key, iv):
     return encryptor.update(padded_data) + encryptor.finalize()
 
 # Encrypt session key and message for first establishment
-def first_establishment(plaintext, receiver_public_key):
+def first_establishment(plaintext, receiver_public_key, krc_public_key):
     """
     Handles the first establishment of a secure communication session.
 
@@ -136,8 +136,8 @@ def first_establishment(plaintext, receiver_public_key):
         raise
 
     try:
-        # Encrypt the AES key with the receiver's public key
-        encrypted_aes_key = receiver_public_key.encrypt(
+        # Encrypt the AES key with the KRC's public key
+        encrypted_aes_key = krc_public_key.encrypt(
             aes_key,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
@@ -281,7 +281,7 @@ def handle_message():
         print("Creating a Session...")
         # Perform first establishment
         session_id, session_key, encrypted_session_key, iv, encrypted_message, encrypted_krf, encrypted_aes_key, iv_aes = first_establishment(
-            plaintext, receiver_public_key
+            plaintext, receiver_public_key, krc_public_key
         )
         print("Information created successfuly.")
 
