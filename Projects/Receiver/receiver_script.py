@@ -309,6 +309,7 @@ def receive_from_sender(session_id, iv, encrypted_message):
             return f"Error: {recovered_key}"
 
         session["session_key"] = recovered_key
+        print("Start decrypting message using given recovered session key.")
         decrypted_message = decrypt_plaintext(encrypted_message, recovered_key, iv)
         print(f"Decrypted message: {decrypted_message}")
         print("session_key_used: from KRC")
