@@ -55,39 +55,48 @@ def encrypt_message(message, public_key):
 def handle_client(client_socket):
     try:
         # Receive data
-        data = client_socket.recv(4096)
+        data = client_socket.recv(4096).decode()  # Convert bytes to string
+        print("Loaded data from KRC:", data)
         if not data:
             return
         
-        # Parse data (assumes a simple JSON protocol)
-        message = json.loads(data.decode('utf-8'))
-        
+        # Parse data (assumes a simple JSON protocol) JSON string into a Python dictionary
+        message = json.loads(data)
+
         if message["type"] == "challenge":
-            encrypted_challenge = bytes.fromhex(message["encrypted_data"])
+            print("Extract challenge code.")
+            encrypted_challenge = bytes.fromhex(message["encrypted_challenge_code"])
             challenge_code = decrypt_message(encrypted_challenge)
             
             # Generate challenge verifier
+            print("hashing challenge code.")
             challenge_verifier = hashlib.sha256(challenge_code).digest()
             
             # Encrypt verifier with KRC's public key
+            print("Encrypting challenge.")
             encrypted_verifier = encrypt_message(challenge_verifier, krc_public_key)
             response = {
                 "type": "challenge_response",
-                "challenge_verifier": encrypted_verifier.hex()
+                "encrypted_challenge_verifier": encrypted_verifier.hex()
             }
             client_socket.send(json.dumps(response).encode('utf-8'))
+            print("Challenge code verifier send.")
         
         elif message["type"] == "krf_retrieval":
+            print("Extract KRF-i.")
             encrypted_krf_i = bytes.fromhex(message["encrypted_krf_i"])
+            print("Decrypt KRF-i.")
             krf_i = decrypt_message(encrypted_krf_i)
             
             # Re-encrypt KRF-i with KRC's public key
+            print("Re-encrypt KRF-i.")
             re_encrypted_krf_i = encrypt_message(krf_i, krc_public_key)
             response = {
                 "type": "krf_response",
                 "encrypted_krf_i": re_encrypted_krf_i.hex()
             }
             client_socket.send(json.dumps(response).encode('utf-8'))
+            print("KRF-i send.")
         
     except Exception as e:
         error_response = {"status": "error", "message": str(e)}

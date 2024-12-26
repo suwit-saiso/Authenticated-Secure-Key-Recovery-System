@@ -202,7 +202,8 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
             # Receive the unfinished session key and Sr from KRC
             key_parts = receive_from_krc()  
 
-            encrypted_unfinished_session_key = key_parts.get('unfinished_session_key')
+            print("Keys from KRC received.")
+            encrypted_unfinished_session_key = key_parts.get("encrypted_unfinished_session_key")
             if isinstance(encrypted_unfinished_session_key, str):
                     # Convert hex string to bytes
                     encrypted_unfinished_session_key = bytes.fromhex(encrypted_unfinished_session_key)

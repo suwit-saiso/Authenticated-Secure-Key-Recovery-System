@@ -64,19 +64,15 @@ def generate_pkce_challenge():
 def decrypt_data(data, AES_key, iv):
     if isinstance(iv, str):
         iv = bytes.fromhex(iv)  # Convert hex string to bytes
-        
+
     # Create an AES cipher object for decryption
     cipher = Cipher(algorithms.AES(AES_key), modes.CFB(iv))
     decryptor = cipher.decryptor()
     
     # Decrypt the message
-    decrypted_padded_data = decryptor.update(data) + decryptor.finalize()
+    data = decryptor.update(data) + decryptor.finalize()
     
-    # Remove padding from the plaintext
-    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
-    data = unpadder.update(decrypted_padded_data) + unpadder.finalize()
-    
-    return data.decode()
+    return data.decode() # Returns a string
 
 #====================== Core Functions ======================
 # Function to receive and decrypt the request
@@ -94,6 +90,7 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
     request_session_id = request['session_id']
     request_timestamp = request['timestamp']
 
+    print("Start decrypt AES key.")
     # decrypt the AES key with KRC's privat key
     decrypted_AES_key = krc_private_key.decrypt(
         encrypted_AES_key,
@@ -101,6 +98,7 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
     )
 
     # decrypt the KRF with AES key and iv_aes
+    print("Start decrypt KRF.")
     krf = decrypt_data(encrypted_krf, decrypted_AES_key, iv_aes)
     print("finish decrypting request.")
     return krf, requester_challenge_verifier, request_session_id, request_timestamp
@@ -108,9 +106,10 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
 # Function to decrypt the KRF and validate the request
 def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp):
     # Step: Decrypt session info
-    print("Starting to decrypt krf")
-    encrypted_other_info = krf["OtherInformation"]
-    encrypted_session_info = encrypted_other_info.get('Info')
+    print("Starting to decrypt KRF informations.")
+    krf = json.loads(krf)  # Convert JSON string to a dictionary
+    encrypted_other_info = krf["OtherInformation"] # This is a dictionary now
+    encrypted_session_info = bytes.fromhex(encrypted_other_info["Info"])  # Convert hex string to bytes
     session_info_decrypted = krc_private_key.decrypt(
         encrypted_session_info,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
@@ -127,7 +126,7 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
 
     return krf
 
-# Verify the requester using PKCE-like challenge <-useful?
+# Verify the requester using PKCE-like challenge 
 def verify_requester(challenge_code, requester_challenge_verifier):
     hashed_challenge_code = hashlib.sha256(challenge_code).digest()
     if hashed_challenge_code != requester_challenge_verifier:
@@ -138,9 +137,13 @@ def verify_requester(challenge_code, requester_challenge_verifier):
 def client_validation(client_socket, requester_challenge_verifier):
     try:
         # Receive data
-        data = client_socket.recv(4096)
+        data = client_socket.recv(4096).decode()  # Convert bytes to string
+        print("Loaded data from requester for validation:", data)
         if not data:
             return
+
+        # Parse JSON string into a Python dictionary
+        data = json.loads(data)
         
         print('Receiving data from Requester after validated request')
         encrypted_challenge = bytes.fromhex(data['encrypted_challenge_code'])
@@ -150,6 +153,7 @@ def client_validation(client_socket, requester_challenge_verifier):
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
 
+        print("Verifying requester with challenge code.")
         verification = verify_requester(decrypted_challenge, requester_challenge_verifier)
         if verification != "Requester verified successfully.":
             print("Authorization failed.")
@@ -162,85 +166,126 @@ def client_validation(client_socket, requester_challenge_verifier):
         error_response = {"status": "error", "message": str(e)}
         client_socket.send(json.dumps(error_response).encode('utf-8')) 
 
-
 #====================== Key Recovery Process ======================
 # Function to distribute KRF-i and perform PKCE-like challenge with KRAs
 def distribute_krf_to_kras(krf, kra_public_keys):
-    encrypted_krf_i_list = []
+    print("Start distributing KRF-i.")
+    print(type(krf))
+    krf_i_list = [None] * len(kra_public_keys)  # Initialize list with None for tracking
     
     # Distribute KRF-i and perform PKCE-like challenge
-    for i, kra_public_key in enumerate(kra_public_keys):
+    for i, kra_public_key in enumerate(kra_public_keys, start=1):
         try:
+            print(f'Generating challenge for KRA-{i}')
+
             # Generate challenge for each KRA
             challenge_code, challenge_verifier = generate_pkce_challenge()
-            kra_challenge_verifiers[f"KRA-{i}"] = challenge_verifier  # Store verifier for validation later
 
             # Send the challenge code to KRA-i
-            send_to_kra(i, kra_public_key.encrypt(
+            encrypted_challenge_code = kra_public_key.encrypt(
                 challenge_code,
                 padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-            ))
+            )
+            print("prepare data to send KRA")
+            # Prepare data
+            payload_1 = {
+            "encrypted_challenge_code": encrypted_challenge_code.hex(),
+            "type": "challenge"
+            }
+            send_to_kra(i, payload_1)
 
             # Wait for the challenge verifier from KRA-i
             kra_response = receive_from_kra(i)
-            kra_challenge_verifier = kra_response["challenge_verifier"]
+            print("Extracting challenge verifier.")
+            if kra_response["type"] != "challenge_response":
+                raise ValueError(f"Unexpected response type from KRA-{i}: {kra_response.get('type')}")         
 
             # decrypt challenge verifier
-            inner_kra_challenge_verifier = krc_private_key.decrypt(
-                kra_challenge_verifier,
+            encrypted_kra_challenge_verifier = bytes.fromhex(kra_response["encrypted_challenge_verifier"])
+            print("Decrypting challenge verifier.")
+            kra_challenge_verifier = krc_private_key.decrypt(
+                encrypted_kra_challenge_verifier,
                 padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
             )
 
             # Compare challenge verifiers
-            if inner_kra_challenge_verifier != challenge_verifier:
+            print("Comparing challenge verifier.")
+            if kra_challenge_verifier != challenge_verifier:
                 print(f"KRA-{i} verification failed.")
-                handle_failed_kra(i)  # Handle failure scenario
-                continue
+                if not handle_failed_kra(i, payload_1, challenge_verifier):
+                    print(f"KRA-{i} permanently failed. Marking index as None.")
+                    krf_i_list[i - 1] = None
+                    continue
 
             # If KRA verification succeeds, send KRF-i to KRA
-            krf_i_encrypted = krf[f"KRF-{i}"]
-            # Decrypt the outer layer
-            inner_encrypted_data = krc_private_key.decrypt(
-                krf_i_encrypted,
-                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-            )
-            # Forward the inner encrypted data to the responsible KRA
-            send_to_kra(i, inner_encrypted_data)
+            print(f"KRA-{i} verification succeeds.")
+            krf_i_encrypted = krf[f"KRF-{i}"] # should still be a hex string
+            # Forward the encrypted data to the responsible KRA
+            print(f"prepare KRF-{i} to send KRA")
+            # Prepare data
+            payload_2 = {
+            "encrypted_krf_i": krf_i_encrypted,
+            "type": "krf_retrieval"
+            }
+            send_to_kra(i, payload_2)
 
             # Wait for KRA to return the KRF-i decrypted and re-encrypted with KRC's public key
             encrypted_krf_i = receive_from_kra(i)
-            encrypted_krf_i_list.append(encrypted_krf_i)  # Collect the encrypted KRF-i part
-            
+            print(f"Extracting KRF-{i} from KRA.")
+            if encrypted_krf_i["type"] != "krf_response":
+                raise ValueError(f"Unexpected response type from KRA-{i}: {kra_response.get('type')}")
+    
+            re_encrypted_krf_i = bytes.fromhex(encrypted_krf_i["encrypted_krf_i"])
+            # Decrypt re_encrypted_krf_i with KRC' privat key
+            print("Decrypting re-encrypted KRF-i.")
+            decrypted_krf_i = krc_private_key.decrypt(
+                re_encrypted_krf_i,
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+            )
+            # Convert the decrypted KRF-i from bytes to JSON
+            try:
+                krf_i = json.loads(decrypted_krf_i.decode())  # Parse JSON from bytes
+                print(f"KRF-{i} successfully decrypted and parsed.")
+            except json.JSONDecodeError as e:
+                print(f"Error parsing decrypted KRF-{i}: {e}")
+                krf_i = None  # Handle invalid JSON appropriately, if needed
+
+            krf_i_list[i - 1] = krf_i  # Save the parsed JSON result at the correct index
+
         except Exception as e:
-            print(f"Error communicating with KRA-{i}: {str(e)}")
-            handle_failed_kra(i)
+            print(f"Error communicating with KRA-{i}: {e}")
+            if not handle_failed_kra(i, None, None):
+                print(f"KRA-{i} permanently failed due to exception. Marking index as None.")
+                krf_i_list[i - 1] = None
 
     # Check if all KRF-i parts are collected
-    if len(encrypted_krf_i_list) != len(kra_public_keys):
+    if None in krf_i_list:
         print("Not all KRF-i parts were collected, initiating failure handling.")
-        handle_kra_failure()  # Handle recovery for missing parts
-    
-    return encrypted_krf_i_list
+        krf_i_list = handle_kra_failure(krf_i_list, krf)  # Handle recovery for missing parts
 
+    print("KRF-i list successfully completed without problems.")
+    return krf_i_list
 
 # Collect key shares from KRAs and assemble session key
-def collect_key_shares_and_assemble(encrypted_krf_i_list):
+def collect_key_shares_and_assemble(krf_i_list):
     key_shares = []
-    for encrypted_krf_i in encrypted_krf_i_list:
-        # Decrypt KRF_i
-        krf_i = krc_private_key.decrypt(
-            encrypted_krf_i,
-            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-        )
-        krf_i_data = json.loads(krf_i.decode())
-        key_shares.append(krf_i_data["Si"])
+    print("Beginning key assemble.")
+    # Extract and convert all Si values from the KRF-i list
+    for krf_i in krf_i_list:
+        if krf_i is None:
+            raise ValueError("KRF-i list contains None values. Ensure all key shares are available.")
+        
+        # Extract Si as bytes
+        Si = bytes.fromhex(krf_i["Si"])
+        key_shares.append(Si)
     
     # Assemble session key using XOR of all key shares
-    session_key = key_shares[0]
+    unfinished_session_key = key_shares[0]
     for share in key_shares[1:]:
-        session_key = xor(session_key, share)
-    
-    return session_key
+        unfinished_session_key = xor(unfinished_session_key, share)
+
+    print("Returning assembled key.")
+    return unfinished_session_key
 
 # Encrypt the session key for the receiver and return it
 def encrypt_session_key(session_key):
@@ -258,77 +303,143 @@ def send_to_kra(kra_index, encrypted_data):
     Send data to a KRA using a socket connection.
     """
     host = "0.0.0.0"
-    port = 5003 + kra_index  # Each KRA gets a unique port starting from 5003.
+    port = 5002 + kra_index  # Each KRA gets a unique port starting from 5003.
     
     try:
         # Create a socket connection
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.connect((host, port))  # Connect to the KRA server
-            
-            # Prepare data
-            message = json.dumps({"encrypted_data": encrypted_data.hex()})
-            
-            # Send the length of the message first
-            message_length = len(message).to_bytes(4, 'big')
-            sock.sendall(message_length + message.encode('utf-8'))
-            
-            # Wait for a response
-            response_length = int.from_bytes(sock.recv(4), 'big')
-            response_data = sock.recv(response_length).decode('utf-8')
-            
-        # Return the response
-        return json.loads(response_data)
+            sock.settimeout(10)  # Set a 10-second timeout
+            sock.connect((host, port))  # Connect to the KRA server          
+            sock.sendall(encrypted_data)
+            print("send data to KRA.")
+    
+    except socket.timeout:
+        print("Timeout while sending data to KRC")
     except Exception as e:
-        raise ValueError(f"Failed to send data to KRA-{kra_index}: {str(e)}")
+        print(f"Error in send_to_krc: {e}")
 
 def receive_from_kra(kra_index):
     """
     Receive data from a KRA using a socket connection.
     """
     host = "0.0.0.0"
-    port = 5003 + kra_index  # Each KRA gets a unique port starting from 5003.
+    port = 5002 + kra_index  # Each KRA gets a unique port starting from 5003.
     
     try:
         # Create a socket connection
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(10)  # Set a 10-second timeout
             sock.connect((host, port))  # Connect to the KRA server
-            
-            # Request data (you might need to define a specific request format)
-            message = json.dumps({"action": "retrieve"})
-            message_length = len(message).to_bytes(4, 'big')
-            sock.sendall(message_length + message.encode('utf-8'))
-            
-            # Wait for a response
-            response_length = int.from_bytes(sock.recv(4), 'big')
-            response_data = sock.recv(response_length).decode('utf-8')
-        
-        # Return the response
-        return json.loads(response_data)
-    except Exception as e:
-        raise ValueError(f"Failed to receive data from KRA-{kra_index}: {str(e)}")
+            response = sock.recv(1024)
+            print("KRA data received.")
+            return json.loads(response.decode())
 
+    except socket.timeout:
+        print("Timeout while waiting for response from KRC")
+        return {"error": "Timeout"}
+    except Exception as e:
+        print(f"Error in receive_response_from_krc: {e}")
+        return {"error": str(e)}
+    
 # Function to handle individual KRA failures
-def handle_failed_kra(kra_index, attempt=1, max_retries=3):
-    if attempt > max_retries:
-        print(f"KRA-{kra_index} failed after {max_retries} retries.")
-        return False
-    print(f"Retrying communication with KRA-{kra_index} (Attempt {attempt}/{max_retries})...")
-    return True  # Retry logic or fallback mechanism
+def handle_failed_kra(kra_index, payload, challenge_verifier):
+    attempt = 1
+    max_retries = 3
+
+    while attempt <= max_retries:
+        print(f"Retrying communication with KRA-{kra_index} (Attempt {attempt}/{max_retries})...")
+
+        # Send the payload to the KRA
+        send_to_kra(kra_index, payload)
+
+        # Wait for the challenge verifier response from KRA
+        kra_response = receive_from_kra(kra_index)
+        if kra_response.get("type") == "challenge_response":
+            try:
+                print(f"Extracting challenge verifier on attempt {attempt}...")
+                encrypted_kra_challenge_verifier = bytes.fromhex(kra_response["encrypted_challenge_verifier"])
+
+                # Decrypt the challenge verifier
+                print(f"Decrypting challenge verifier on attempt {attempt}...")
+                kra_challenge_verifier = krc_private_key.decrypt(
+                    encrypted_kra_challenge_verifier,
+                    padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+                )
+
+                # Compare challenge verifiers
+                print(f"Comparing challenge verifier on attempt {attempt}...")
+                if kra_challenge_verifier == challenge_verifier:
+                    print(f"KRA-{kra_index} verification succeeded.")
+                    return True  # Successfully verified
+                else:
+                    print(f"KRA-{kra_index} verification failed. Challenge verifiers do not match.")
+            except Exception as e:
+                print(f"Error during KRA-{kra_index} verification on attempt {attempt}: {e}")
+        else:
+            print(f"Invalid response type from KRA-{kra_index}. Expected 'challenge_response', got: {kra_response.get('type')}")
+
+        # Increment attempt count
+        attempt += 1
+
+    # If all retries are exhausted
+    print(f"KRA-{kra_index} failed after {max_retries} retries.")
+    return False
 
 # Function to handle failure in the overall KRA key shares collection
-def handle_kra_failure():
+def handle_kra_failure(krf_i_list, krf):
     print("Handling overall KRA failure for missing KRF-i parts.")
-    # Fallback mechanism for missing parts or initiate recovery process
-    # Implement SFM-KRS specific recovery (e.g., redundant shares or recovery mechanism)
-    pass
-
+    
+    # Step 1: Extract and process the SGN values as bytes
+    sgn_values = [bytes.fromhex(krf_i["SGN"]) for krf_i in krf_i_list if krf_i is not None]
+    if not sgn_values:
+        raise ValueError("No valid SGN found in KRF-i list.")
+    
+    # Check if all SGN values are the same
+    if len(set(sgn_values)) != 1:
+        raise ValueError("Inconsistent SGN values found in KRF-i list.")
+    
+    # Remember the common SGN (in bytes)
+    SGN = sgn_values[0]
+    print(f"Consistent SGN identified as: {SGN.hex()}")
+    
+    # Step 2: Identify missing KRF-i parts (indices with None)
+    missing_indices = [i for i, krf_i in enumerate(krf_i_list) if krf_i is None]
+    print(f"Missing KRF-i indices: {missing_indices}")
+    
+    # Step 3: Recreate missing KRF-i parts
+    for i in missing_indices:
+        # Retrieve and decrypt the corresponding TT-i value
+        outer_encrypted_TTi = krf[f"TT-{i + 1}"]  # i + 1 corresponds to KRA-1 to KRA-5
+        encrypted_TTi = bytes.fromhex(outer_encrypted_TTi["TTi"])  # Convert hex string to bytes
+        TTi = krc_private_key.decrypt(
+            encrypted_TTi,
+            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+        )
+        
+        # Calculate Si as bytes using XOR
+        Si = xor(SGN, TTi)  # XOR operation
+        
+        # Recreate KRF-i as a dictionary with hex strings
+        recreated_krf_i = {"Si": Si.hex(), "SGN": SGN.hex()}
+        print(f"Recreated KRF-{i + 1}: {recreated_krf_i}")
+        
+        # Save the recreated KRF-i in the list
+        krf_i_list[i] = recreated_krf_i
+    
+    # Step 4: Return the updated KRF-i list
+    print("KRF-i list successfully completed.")
+    return krf_i_list
 
 def receive_request(client_socket):
     try:
         # Receive data
-        data = client_socket.recv(4096)
+        data = client_socket.recv(4096).decode()  # Convert bytes to string
+        print("Loaded data from requester:", data)
         if not data:
             return
+
+        # Parse JSON string into a Python dictionary
+        data = json.loads(data)
         
         print('Receiving data from Requester')
         encrypted_request = bytes.fromhex(data['encrypted_request'])
@@ -354,14 +465,23 @@ def receive_request(client_socket):
 
                 print("Beginning Phase 2.")
                 # Step 2: Distribute KRF-i to KRAs and collect encrypted KRF-i responses
-                encrypted_krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
+                krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
 
+                print("Beginning Phase 3.")
                 # Step 3: Assemble the session key from KRF-i parts
-                session_key = collect_key_shares_and_assemble(encrypted_krf_i_list)
+                unfinished_session_key = collect_key_shares_and_assemble(krf_i_list)
 
+                print("beginning Phase 4.")
                 # Step 4: Encrypt the session key and send it back to the Receiver
-                encrypted_session_key = encrypt_session_key(session_key)
-                client_socket.send(json.dumps(encrypted_session_key).encode('utf-8'))
+                encrypted_session_key = encrypt_session_key(unfinished_session_key)
+                print("Preparing unfinished session key.")
+                Sr = krf_data["Sr"] # This is a dictionary 
+                encrypted_Sr = bytes.fromhex(Sr["Sr"])  # Convert hex string to bytes
+                payload = {"encrypted_unfinished_session_key": encrypted_session_key.hex(),
+                           "Sr":encrypted_Sr.hex()
+                           }
+                client_socket.send(json.dumps(payload).encode('utf-8'))
+                print("Keys sended.")
 
             requester_validation = {"response":"Authenticate failed"}
             print('Sending authorization failed response to Requester')
