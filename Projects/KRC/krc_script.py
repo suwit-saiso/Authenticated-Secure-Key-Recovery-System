@@ -4,6 +4,7 @@ import struct
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 import hashlib
 import time
@@ -49,7 +50,7 @@ except FileNotFoundError as e:
 # Store KRA challenge verifiers
 kra_challenge_verifiers = {}
 
-# Helper funtions
+#============================= Helper funtions ===================================
 def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
 
@@ -59,9 +60,29 @@ def generate_pkce_challenge():
     challenge_verifier = hashlib.sha256(challenge_code).digest()
     return challenge_code, challenge_verifier
 
+# Decrypt the data using the AES key and iv (AES)
+def decrypt_data(data, AES_key, iv):
+    if isinstance(iv, str):
+        iv = bytes.fromhex(iv)  # Convert hex string to bytes
+        
+    # Create an AES cipher object for decryption
+    cipher = Cipher(algorithms.AES(AES_key), modes.CFB(iv))
+    decryptor = cipher.decryptor()
+    
+    # Decrypt the message
+    decrypted_padded_data = decryptor.update(data) + decryptor.finalize()
+    
+    # Remove padding from the plaintext
+    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    data = unpadder.update(decrypted_padded_data) + unpadder.finalize()
+    
+    return data.decode()
+
 #====================== Core Functions ======================
 # Function to receive and decrypt the request
-def receive_and_decrypt_request(encrypted_request):
+def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_key, iv_aes):
+    print("Start to decrypt request.")
+    # decrypt the recovery request with KRC's privat key
     decrypted_request = krc_private_key.decrypt(
         encrypted_request,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
@@ -69,17 +90,27 @@ def receive_and_decrypt_request(encrypted_request):
     
     # Decode the JSON-like structure from the request
     request = json.loads(decrypted_request.decode())
-    krf = request['krf']
     requester_challenge_verifier = request['challenge_verifier']
     request_session_id = request['session_id']
     request_timestamp = request['timestamp']
-    
+
+    # decrypt the AES key with KRC's privat key
+    decrypted_AES_key = krc_private_key.decrypt(
+        encrypted_AES_key,
+        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+    )
+
+    # decrypt the KRF with AES key and iv_aes
+    krf = decrypt_data(encrypted_krf, decrypted_AES_key, iv_aes)
+    print("finish decrypting request.")
     return krf, requester_challenge_verifier, request_session_id, request_timestamp
 
 # Function to decrypt the KRF and validate the request
 def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp):
     # Step: Decrypt session info
-    encrypted_session_info = krf["session_info"]
+    print("Starting to decrypt krf")
+    encrypted_other_info = krf["OtherInformation"]
+    encrypted_session_info = encrypted_other_info.get('Info')
     session_info_decrypted = krc_private_key.decrypt(
         encrypted_session_info,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
@@ -88,10 +119,11 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
     krf_session_id = session_info["session_id"]
     krf_timestamp = session_info["timestamp"]
     
+    print("Start validate request.")
     # Step: Validate session and check timestamp
     if krf_session_id != request_session_id or abs(request_timestamp - krf_timestamp) > 600:
         raise ValueError("Invalid session or expired request.")
-    print(f"Session ID: {krf_session_id}, Timestamp: {krf_timestamp}")
+    print(f"Session ID: {krf_session_id}, Timestamp: {krf_timestamp}, validation complete.")
 
     return krf
 
@@ -101,6 +133,35 @@ def verify_requester(challenge_code, requester_challenge_verifier):
     if hashed_challenge_code != requester_challenge_verifier:
         raise ValueError("Challenge verification failed.")
     return "Requester verified successfully."
+
+# Verify the requester 
+def client_validation(client_socket, requester_challenge_verifier):
+    try:
+        # Receive data
+        data = client_socket.recv(4096)
+        if not data:
+            return
+        
+        print('Receiving data from Requester after validated request')
+        encrypted_challenge = bytes.fromhex(data['encrypted_challenge_code'])
+        # decrypt the challenge code with KRC's privat key
+        decrypted_challenge = krc_private_key.decrypt(
+            encrypted_challenge,
+            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+        )
+
+        verification = verify_requester(decrypted_challenge, requester_challenge_verifier)
+        if verification != "Requester verified successfully.":
+            print("Authorization failed.")
+            return "Authorization failed."
+        
+        print("Authorization successfully.")
+        return "Authorization successfully."
+    
+    except Exception as e:
+        error_response = {"status": "error", "message": str(e)}
+        client_socket.send(json.dumps(error_response).encode('utf-8')) 
+
 
 #====================== Key Recovery Process ======================
 # Function to distribute KRF-i and perform PKCE-like challenge with KRAs
@@ -268,20 +329,47 @@ def receive_request(client_socket):
         data = client_socket.recv(4096)
         if not data:
             return
+        
+        print('Receiving data from Requester')
         encrypted_request = bytes.fromhex(data['encrypted_request'])
+        encrypted_krf = bytes.fromhex(data['encrypted_krf'])
+        encrypted_AES_key = bytes.fromhex(data['encrypted_AES_key'])
+        iv_aes = bytes.fromhex(data['iv_aes'])
+
         # Step 1: Receive and decrypt the request
-        krf, requester_challenge_verifier, request_session_id, request_timestamp = receive_and_decrypt_request(encrypted_request)
+        krf, requester_challenge_verifier, request_session_id, request_timestamp = receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_key, iv_aes)
         krf_data = decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
 
-        # Step 2: Distribute KRF-i to KRAs and collect encrypted KRF-i responses
-        encrypted_krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
+        if krf_data:
+            print('Sending first response to Requester')
+            request_validation = {'response':"Request accepted, please verify yourself"}
+            client_socket.send(json.dumps(request_validation).encode('utf-8'))
 
-        # Step 3: Assemble the session key from KRF-i parts
-        session_key = collect_key_shares_and_assemble(encrypted_krf_i_list)
+            # Step 1.5: Validate Requester
+            authorization = client_validation(client_socket, requester_challenge_verifier)
+            if authorization == "Authorization successfully.":
+                print('Sending second response to Requester')
+                requester_validation = {"response":"Authenticate successfully"}
+                client_socket.send(json.dumps(requester_validation).encode('utf-8'))
 
-        # Step 4: Encrypt the session key and send it back to the Receiver
-        encrypted_session_key = encrypt_session_key(session_key)
-        client_socket.send(json.dumps(encrypted_session_key).encode('utf-8'))
+                print("Beginning Phase 2.")
+                # Step 2: Distribute KRF-i to KRAs and collect encrypted KRF-i responses
+                encrypted_krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
+
+                # Step 3: Assemble the session key from KRF-i parts
+                session_key = collect_key_shares_and_assemble(encrypted_krf_i_list)
+
+                # Step 4: Encrypt the session key and send it back to the Receiver
+                encrypted_session_key = encrypt_session_key(session_key)
+                client_socket.send(json.dumps(encrypted_session_key).encode('utf-8'))
+
+            requester_validation = {"response":"Authenticate failed"}
+            print('Sending authorization failed response to Requester')
+            client_socket.send(json.dumps(requester_validation).encode('utf-8')) 
+
+        request_validation = {'response':"Request failed"} 
+        print('Sending request failed response to Requester')
+        client_socket.send(json.dumps(request_validation).encode('utf-8')) 
 
     except Exception as e:
         error_response = {"status": "error", "message": str(e)}
