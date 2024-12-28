@@ -19,12 +19,12 @@ RUN pip install --no-cache-dir \
     socketio
 
 # Copy the krc_script.py and other necessary files into the container
-COPY KRC/krc_script.py /app/
-COPY KRC/keys /app/keys/
-COPY Shared/keys /app/Shared/keys/
+COPY ./KRC/krc_script.py /app/krc_script.py
+COPY ./KRC/keys /app/keys
+COPY ./Shared/keys /app/Shared/keys
 
 # Expose the port that the server will listen on
-EXPOSE 5002
+EXPOSE 5008
 
 # Command to run the krc_script.py when the container starts
 CMD ["python", "krc_script.py"]

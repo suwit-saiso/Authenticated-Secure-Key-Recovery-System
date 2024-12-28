@@ -501,6 +501,7 @@ def receive_request(client_socket):
 def main():
     KRC_PORT = 5002
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind(("0.0.0.0", KRC_PORT))
     server_socket.listen(5)
     print(f"KRC listening on port {KRC_PORT}")
