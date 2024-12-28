@@ -11,6 +11,9 @@ import os
 import time
 import hashlib
 
+# added lib
+import uuid
+
 #=========================== JSON payload test ======================================
 # def load_payload_from_file(filename="payload.json"):
 #     """
@@ -53,7 +56,7 @@ receiver_private_key_path = os.path.join(script_dir, "keys", "receiver_private.p
 receiver_public_key_path = os.path.join(script_dir, "keys", "receiver_public.pem")
 
 # Paths for Shared folder keys (parallel to the Sender folder)
-shared_keys_dir = os.path.abspath(os.path.join(script_dir, "../Shared/keys"))
+shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
 sender_public_key_path = os.path.join(shared_keys_dir, "sender_public.pem")
 krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
 
@@ -455,38 +458,122 @@ def start_socket_server():
             print(f"Connection from {addr}")
             threading.Thread(target=handle_sender_connection, args=(conn,)).start()
 
-# Flask endpoint for manual testing
+# session for manual test
+sessions = {
+    "session_1": {
+        "iv": "example_iv",
+        "encrypted_message": "example_message",
+        "session_key": "example_key"
+    }
+}
+
+# # Flask endpoint for manual testing
+# @app.route('/manual_test', methods=['POST'])
+# def manual_test():
+#     data = request.json
+#     if data.get("command") == "start test":
+#         if not sessions:
+#             print("No session found")
+#             return jsonify({"message": "No session found"}), 404
+
+
+#         # Take the latest session_id
+#         latest_session_id = list(sessions.keys())[-1]
+#         session = sessions.get(latest_session_id)
+
+#         if not session:
+#             return jsonify({"message": "No active session found"}), 404
+        
+#         # Simulate session key loss
+#         session_key = session.pop("session_key", None)
+#         if not session_key:
+#             print("Session key already removed")
+
+#         # Call receive_from_sender to trigger recovery
+#         iv = session["iv"]
+#         encrypted_message = session["encrypted_message"]
+#         response = receive_from_sender(latest_session_id, iv, encrypted_message)
+        
+#         # Restore the session key to avoid disrupting normal operations
+#         if "session_key_used" in response:
+#             session["session_key"] = session_key
+
+#         return jsonify({"message": response})
+#     return jsonify({"message": "Invalid command"}), 400
+
 @app.route('/manual_test', methods=['POST'])
 def manual_test():
     data = request.json
-    if data.get("command") == "start test":
-        if not sessions:
-            print("No session found")
-            return jsonify({"message": "No session found"}), 404
+    
+    # ตรวจสอบว่ามีข้อมูลหรือไม่
+    if not data:
+        return jsonify({"message": "Request data is missing"}), 400
 
-        # Take the latest session_id
-        latest_session_id = list(sessions.keys())[-1]
-        session = sessions.get(latest_session_id)
+    # ตรวจสอบว่า command เป็น "start test" หรือไม่
+    if data.get("command") != "start test":
+        return jsonify({"message": "Invalid command. Expected 'start test'"}), 400
 
-        if not session:
-            return jsonify({"message": "No active session found"}), 404
-        
-        # Simulate session key loss
-        session_key = session.pop("session_key", None)
-        if not session_key:
-            print("Session key already removed")
+    # ตรวจสอบว่ามี session หรือไม่
+    if not sessions:
+        print("No session found")
+        return jsonify({"message": "No session found"}), 404
 
-        # Call receive_from_sender to trigger recovery
-        iv = session["iv"]
-        encrypted_message = session["encrypted_message"]
-        response = receive_from_sender(latest_session_id, iv, encrypted_message)
-        
-        # Restore the session key to avoid disrupting normal operations
-        if "session_key_used" in response:
-            session["session_key"] = session_key
+    # ดึง session_id ล่าสุด
+    latest_session_id = list(sessions.keys())[-1]
+    session = sessions.get(latest_session_id)
 
-        return jsonify({"message": response})
-    return jsonify({"message": "Invalid command"}), 400
+    # ตรวจสอบว่า session_id มีข้อมูลหรือไม่
+    if not session:
+        return jsonify({"message": "No active session found"}), 404
+
+    # ลบ session_key เพื่อจำลองการสูญเสีย
+    session_key = session.pop("session_key", None)
+    if not session_key:
+        print("Session key already removed")
+
+    # เรียกฟังก์ชัน receive_from_sender เพื่อดำเนินการ
+    iv = session.get("iv")
+    encrypted_message = session.get("encrypted_message")
+
+    # ตรวจสอบว่าค่า iv และ encrypted_message มีข้อมูลหรือไม่
+    if not iv or not encrypted_message:
+        return jsonify({"message": "Incomplete session data. Missing 'iv' or 'encrypted_message'"}), 500
+
+    response = receive_from_sender(latest_session_id, iv, encrypted_message)
+    
+    # คืนค่า session_key เพื่อไม่ให้กระทบต่อการทำงานอื่น
+    if "session_key_used" in response:
+        session["session_key"] = session_key
+
+    # ส่งผลลัพธ์กลับ
+    return jsonify({"message": response})
+
+# ฟังก์ชันรับข้อความ (จำลอง)
+def receive_from_sender(session_id, iv, encrypted_message):
+    # จำลองการตอบกลับ
+    return {"session_key_used": "example_key", "status": "recovered"}
+
+
+# added endpoint for testing
+@app.route('/create_session', methods=['POST'])
+def create_session():
+    # รับข้อมูลจากคำขอ (optionally)
+    data = request.json or {}
+    user_id = data.get("user_id", "default_user")
+
+    # สร้าง session_id ที่ไม่ซ้ำกัน
+    session_id = str(uuid.uuid4())
+
+    # เพิ่มข้อมูล session ใหม่
+    sessions[session_id] = {
+        "user_id": user_id,
+        "iv": "example_iv",  # ตัวอย่างค่าที่กำหนด
+        "encrypted_message": "example_message",  # ตัวอย่างข้อความเข้ารหัส
+        "session_key": "example_key"  # ตัวอย่างกุญแจ
+    }
+
+    # ส่งกลับข้อมูล session_id
+    return jsonify({"message": "Session created", "session_id": session_id}), 201
 
 # Run Flask app and socket server concurrently
 if __name__ == '__main__':

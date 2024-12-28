@@ -7,7 +7,7 @@ BASE_FOLDER = os.path.dirname(os.path.abspath(__file__))  # Path to `generate_ke
 PARENT_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, ".."))  # Path to parent folder
 
 # Shared keys folder and containers folder inside the parent folder
-SHARED_KEYS_FOLDER = os.path.join(PARENT_FOLDER, "Shared/keys")
+SHARED_KEYS_FOLDER = os.path.join(PARENT_FOLDER, "./Shared/keys")
 CONTAINERS_FOLDER = PARENT_FOLDER
 
 # List of entities to generate keys for

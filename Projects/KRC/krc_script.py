@@ -29,7 +29,7 @@ krc_private_key_path = os.path.join(script_dir, "keys", "krc_private.pem")
 krc_public_key_path = os.path.join(script_dir, "keys", "krc_public.pem")
 
 # Paths for Shared folder keys (parallel to the Sender folder)
-shared_keys_dir = os.path.abspath(os.path.join(script_dir, "../Shared/keys"))
+shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
 receiver_public_key_path = os.path.join(shared_keys_dir, "receiver_public.pem")
 
 kra_public_key_paths = [
