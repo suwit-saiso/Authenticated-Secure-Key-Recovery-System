@@ -54,6 +54,8 @@ try:
 except FileNotFoundError as e:
     raise FileNotFoundError(f"Key file not found: {e}")
 
+RECEIVERHOST = '0.0.0.0'
+
 #========================= Utility Functions =========================
 # Generate session key (AES key)
 def generate_session_key():
@@ -229,7 +231,7 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
 def send_to_receiver(data):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect(('receiver', 5001))  # Use Docker service name need update here 0.0.0.0
+            s.connect((RECEIVERHOST , 5001))  # Use Docker service name need update here 0.0.0.0
             s.sendall(data)
             response = s.recv(1024)
         return response
