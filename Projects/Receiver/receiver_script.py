@@ -453,19 +453,10 @@ def start_socket_server():
         while True:
             # DELETER AFTER
             # testjsonformat()
-            
+            print("Waiting for a connection...")
             conn, addr = server.accept()
             print(f"Connection from {addr}")
             threading.Thread(target=handle_sender_connection, args=(conn,)).start()
-
-# session for manual test delete after
-# sessions = {
-#     "session_1": {
-#         "iv": "example_iv",
-#         "encrypted_message": "example_message",
-#         "session_key": "example_key"
-#     }
-# }
 
 # Flask endpoint for manual testing
 @app.route('/manual_test', methods=['POST'])
@@ -500,54 +491,6 @@ def manual_test():
 
         return jsonify({"message": response})
     return jsonify({"message": "Invalid command"}), 400
-
-# @app.route('/manual_test', methods=['POST'])
-# def manual_test():
-#     data = request.json
-    
-#     # ตรวจสอบว่ามีข้อมูลหรือไม่
-#     if not data:
-#         return jsonify({"message": "Request data is missing"}), 400
-
-#     # ตรวจสอบว่า command เป็น "start test" หรือไม่
-#     if data.get("command") != "start test":
-#         return jsonify({"message": "Invalid command. Expected 'start test'"}), 400
-
-#     # ตรวจสอบว่ามี session หรือไม่
-#     if not sessions:
-#         print("No session found")
-#         return jsonify({"message": "No session found"}), 404
-
-#     # ดึง session_id ล่าสุด
-#     latest_session_id = list(sessions.keys())[-1]
-#     session = sessions.get(latest_session_id)
-
-#     # ตรวจสอบว่า session_id มีข้อมูลหรือไม่
-#     if not session:
-#         return jsonify({"message": "No active session found"}), 404
-
-#     # ลบ session_key เพื่อจำลองการสูญเสีย
-#     session_key = session.pop("session_key", None)
-#     if not session_key:
-#         print("Session key already removed")
-
-#     # เรียกฟังก์ชัน receive_from_sender เพื่อดำเนินการ
-#     iv = session.get("iv")
-#     encrypted_message = session.get("encrypted_message")
-
-#     # ตรวจสอบว่าค่า iv และ encrypted_message มีข้อมูลหรือไม่
-#     if not iv or not encrypted_message:
-#         return jsonify({"message": "Incomplete session data. Missing 'iv' or 'encrypted_message'"}), 500
-
-#     response = receive_from_sender(latest_session_id, iv, encrypted_message)
-    
-#     # คืนค่า session_key เพื่อไม่ให้กระทบต่อการทำงานอื่น
-#     if "session_key_used" in response:
-#         session["session_key"] = session_key
-
-#     # ส่งผลลัพธ์กลับ
-#     return jsonify({"message": response})
-
 
 # Run Flask app and socket server concurrently
 if __name__ == '__main__':

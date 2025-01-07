@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir flask \
 COPY . /app
 
 # Expose the port the app runs on
-EXPOSE 5001
+EXPOSE 5001 5050
 
 # Set environment variables (if needed)
 ENV FLASK_ENV=development

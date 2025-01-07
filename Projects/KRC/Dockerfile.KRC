@@ -24,7 +24,7 @@ COPY ./KRC/keys /app/keys
 COPY ./Shared/keys /app/Shared/keys
 
 # Expose the port that the server will listen on
-EXPOSE 5008
+EXPOSE 5002
 
 # Command to run the krc_script.py when the container starts
 CMD ["python", "krc_script.py"]
