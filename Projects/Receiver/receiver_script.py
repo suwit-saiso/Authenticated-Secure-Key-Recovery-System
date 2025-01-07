@@ -246,46 +246,57 @@ def cleanup_sessions():
 
 # Send encrypted data to KRC
 def send_to_krc(data):
+    s = None
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(10)  # Set a 10-second timeout
-            s.connect((KRC_HOST, KRC_PORT))
-            s.sendall(data)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(10)  # Set a 10-second timeout
+        s.connect((KRC_HOST, KRC_PORT))
+        s.sendall(data)
     except socket.timeout:
         print("Timeout while sending data to KRC")
     except Exception as e:
         print(f"Error in send_to_krc: {e}")
-
+    finally:
+        if s:
+            s.close()
 
 # Receive response from KRC 
 def receive_response_from_krc():
+    s = None
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(10)  # Set a 10-second timeout
-            s.connect((KRC_HOST, KRC_PORT))
-            response = s.recv(1024)
-            return json.loads(response.decode())
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(10)  # Set a 10-second timeout
+        s.connect((KRC_HOST, KRC_PORT))
+        response = s.recv(1024)
+        return json.loads(response.decode())
     except socket.timeout:
         print("Timeout while waiting for response from KRC")
         return {"error": "Timeout"}
     except Exception as e:
         print(f"Error in receive_response_from_krc: {e}")
         return {"error": str(e)}
+    finally:
+        if s:
+            s.close()
 
 # Receive session key from KRC 
 def receive_from_krc():
+    s = None
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(10)  # Set a 10-second timeout
-            s.connect((KRC_HOST, KRC_PORT))
-            new_session_key = s.recv(1024)
-            return new_session_key
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(10)  # Set a 10-second timeout
+        s.connect((KRC_HOST, KRC_PORT))
+        new_session_key = s.recv(1024)
+        return new_session_key
     except socket.timeout:
         print("Timeout while waiting for session key from KRC")
         return None
     except Exception as e:
         print(f"Error in receive_from_krc: {e}")
         return None
+    finally:
+        if s:
+            s.close()
     
 # ฟังก์ชั่นสำหรับสร้าง session ใหม่
 def establish_session(session_id, session_key, encrypted_krf, iv, encrypted_message, encrypted_AES_key, iv_AES):
