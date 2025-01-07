@@ -44,6 +44,7 @@ services:
         condition: service_completed_successfully
     ports:
       - "5001:5001"
+      - "5050:5050"
     volumes:
       - ./Receiver/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
