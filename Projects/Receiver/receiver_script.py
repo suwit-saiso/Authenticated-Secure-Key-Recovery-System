@@ -77,9 +77,9 @@ sessions = {}
 KRC_HOST = '0.0.0.0'  # Update with actual KRC container IP/hostname
 KRC_PORT = 5002
 
-# Socket server for sender communication
-SENDER_HOST = '0.0.0.0'
-SENDER_PORT = 5000
+# Socket server for sender-reciver communication to listen
+LISTEN_HOST = '0.0.0.0'
+LISTEN_PORT = 5001
 
 #========================= Encryption/Decryption Functions =========================
 def decrypt_session_key(encrypted_session_key):    
@@ -446,9 +446,9 @@ def handle_sender_connection(conn):
 # Function to start the socket server
 def start_socket_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
-        server.bind((SENDER_HOST, SENDER_PORT))
+        server.bind((LISTEN_HOST, LISTEN_PORT))
         server.listen(5)
-        print(f"Socket server listening on {SENDER_HOST}:{SENDER_PORT}")
+        print(f"Socket server listening on {LISTEN_HOST}:{LISTEN_PORT}")
 
         while True:
             # DELETER AFTER
