@@ -337,18 +337,83 @@ def receive_from_sender(session_id, iv, encrypted_message):
     return {"decrypted_message": decrypted_message, "session_key_used": "from sender"}
 
 # Function to handle incoming data from the sender via socket
+# def handle_sender_connection(conn):
+#     try:
+#         data = conn.recv(4096).decode()
+#         print("Loaded data from receiver:", data)
+#         if not data:
+#             print("No data received.")
+#             return
+#         # If 'data' is a raw string read from a file
+#         if isinstance(data, str):
+#             request = json.loads(data)  # Parse the JSON string into a dict
+#         else:
+#             request = data  # Already a dict, no need to parse
+        
+#         # Validate required fields
+#         required_keys = ['session_id', 'iv', 'encrypted_message']
+#         for key in required_keys:
+#             if key not in request:
+#                 raise ValueError(f"Missing key: {key}")
+
+#         # Extract mandatory fields
+#         session_id = request['session_id']
+#         encrypted_message = request['encrypted_message']
+#         iv = request['iv']
+
+#         # Extract optional fields with default values
+#         encrypted_session_key = request.get('encrypted_session_key', None)
+#         encrypted_krf = request.get('encrypted_krf', None)
+#         encrypted_AES_key = request.get('encrypted_AES_key', None)
+#         iv_AES = request.get('iv_aes', None)
+
+#         if isinstance(encrypted_session_key, str):
+#                     # Convert hex string to bytes
+#                     encrypted_session_key = bytes.fromhex(encrypted_session_key)
+#         if isinstance(encrypted_message, str):
+#                     # Convert hex string to bytes
+#                     encrypted_message = bytes.fromhex(encrypted_message)
+
+#         print("Extracted data successfully.")
+#         # Handle session establishment or recovery
+#         if session_id not in sessions:
+#             print("Establishing new session...")
+#             # Create a new session if session_id does not exist
+#             session_key = decrypt_session_key(encrypted_session_key)
+#             if encrypted_krf:               
+#                 establish_session(session_id, session_key, encrypted_krf, iv, encrypted_message, encrypted_AES_key, iv_AES)
+#             print("Session established.")
+
+#         # Process message
+#         print("Processing message...")
+#         response = receive_from_sender(session_id, iv, encrypted_message)
+
+#         conn.sendall(json.dumps(response).encode())
+
+#     except Exception as e:
+#         print(f"Error handling sender connection: {e}")
+#         conn.sendall(json.dumps({"error": str(e)}).encode())
+#     finally:
+#         conn.close()
+
 def handle_sender_connection(conn):
     try:
-        data = conn.recv(4096).decode()
-        print("Loaded data from receiver:", data)
-        if not data:
+        conn.settimeout(10)  # Set a timeout for the connection
+        try:
+            data = conn.recv(4096).decode()
+            if not data:
+                print("No data received.")
+                return
+            request = json.loads(data)  # Parse JSON
+        except socket.timeout:
+            print("Connection timed out.")
+            conn.sendall(json.dumps({"error": "Connection timed out"}).encode())
             return
-        # If 'data' is a raw string read from a file
-        if isinstance(data, str):
-            request = json.loads(data)  # Parse the JSON string into a dict
-        else:
-            request = data  # Already a dict, no need to parse
-        
+        except json.JSONDecodeError as e:
+            print(f"JSON decoding failed: {e}")
+            conn.sendall(json.dumps({"error": "Invalid JSON format"}).encode())
+            return
+
         # Validate required fields
         required_keys = ['session_id', 'iv', 'encrypted_message']
         for key in required_keys:
@@ -366,21 +431,29 @@ def handle_sender_connection(conn):
         encrypted_AES_key = request.get('encrypted_AES_key', None)
         iv_AES = request.get('iv_aes', None)
 
-        if isinstance(encrypted_session_key, str):
-                    # Convert hex string to bytes
-                    encrypted_session_key = bytes.fromhex(encrypted_session_key)
-        if isinstance(encrypted_message, str):
-                    # Convert hex string to bytes
-                    encrypted_message = bytes.fromhex(encrypted_message)
+        # Convert hex strings to bytes
+        try:
+            if isinstance(encrypted_session_key, str):
+                encrypted_session_key = bytes.fromhex(encrypted_session_key)
+            if isinstance(encrypted_message, str):
+                encrypted_message = bytes.fromhex(encrypted_message)
+        except ValueError as e:
+            print(f"Hex decoding failed: {e}")
+            conn.sendall(json.dumps({"error": "Invalid hex format"}).encode())
+            return
 
         print("Extracted data successfully.")
+
         # Handle session establishment or recovery
         if session_id not in sessions:
             print("Establishing new session...")
-            # Create a new session if session_id does not exist
+            if not encrypted_krf:
+                print("Missing 'encrypted_krf' for session establishment.")
+                conn.sendall(json.dumps({"error": "Missing 'encrypted_krf'"}).encode())
+                return
+
             session_key = decrypt_session_key(encrypted_session_key)
-            if encrypted_krf:               
-                establish_session(session_id, session_key, encrypted_krf, iv, encrypted_message, encrypted_AES_key, iv_AES)
+            establish_session(session_id, session_key, encrypted_krf, iv, encrypted_message, encrypted_AES_key, iv_AES)
             print("Session established.")
 
         # Process message
@@ -394,6 +467,7 @@ def handle_sender_connection(conn):
         conn.sendall(json.dumps({"error": str(e)}).encode())
     finally:
         conn.close()
+        print("Connection closed.")
 
 # # Disable after TEST PHASE
 # def testjsonformat():
@@ -467,7 +541,8 @@ def start_socket_server():
             print("Waiting for a connection...")
             conn, addr = server.accept()
             print(f"Connection from {addr}")
-            threading.Thread(target=handle_sender_connection, args=(conn,)).start()
+            # Pass the connection to a new thread
+            threading.Thread(target=handle_sender_connection, args=(conn,), daemon=True).start()
 
 # Flask endpoint for manual testing
 @app.route('/manual_test', methods=['POST'])
