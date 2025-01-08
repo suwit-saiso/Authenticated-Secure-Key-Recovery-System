@@ -316,7 +316,7 @@ def send_to_kra(kra_index, encrypted_data):
     except socket.timeout:
         print("Timeout while sending data to KRC")
     except Exception as e:
-        print(f"Error in send_to_krc: {e}")
+        print(f"Error sending to KRA-{kra_index}: {e}")
 
 def receive_from_kra(kra_index):
     """
@@ -330,7 +330,7 @@ def receive_from_kra(kra_index):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(10)  # Set a 10-second timeout
             sock.connect((host, port))  # Connect to the KRA server
-            response = sock.recv(1024)
+            response = sock.recv(4096)
             print("KRA data received.")
             return json.loads(response.decode())
 
@@ -338,7 +338,7 @@ def receive_from_kra(kra_index):
         print("Timeout while waiting for response from KRC")
         return {"error": "Timeout"}
     except Exception as e:
-        print(f"Error in receive_response_from_krc: {e}")
+        print(f"Error receiving from KRA-{kra_index}: {e}")
         return {"error": str(e)}
     
 # Function to handle individual KRA failures
