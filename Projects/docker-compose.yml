@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   genkeys:
+    container_name: generate_key
     build:
       context: ./generate_key
       dockerfile: Dockerfile.genkey
@@ -23,6 +24,7 @@ services:
       retries: 3
 
   sender:
+    container_name: sender
     build:
       context: .
       dockerfile: Sender/Dockerfile.sender
@@ -38,6 +40,7 @@ services:
       - app_network
 
   receiver:
+    container_name: receiver
     build:
       context: ./Receiver
       dockerfile: Dockerfile.receiver
@@ -54,6 +57,7 @@ services:
       - app_network
 
   krc:
+    container_name: krc
     build:
       context: .
       dockerfile: KRC/Dockerfile.KRC
@@ -69,6 +73,7 @@ services:
       - app_network
 
   kra:
+    container_name: kra
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
