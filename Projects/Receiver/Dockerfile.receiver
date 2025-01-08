@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libffi-dev \
     curl \
+    iputils-ping \
+    net-tools \
     python-dev-is-python3 \
     && rm -rf /var/lib/apt/lists/*
 
