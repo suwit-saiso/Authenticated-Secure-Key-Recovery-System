@@ -250,10 +250,13 @@ def send_to_receiver(data):
             print("Response received:", response.decode())
         return response
     except socket.timeout:
+        print("Error: Connection timed out.")
         return b"Error: Receiver timed out."
     except ConnectionRefusedError:
+        print("Error: Connection refused.")
         return b"Error: Connection refused."
     except Exception as e:
+        print(f"Socket error: {e}")
         return f"Error: {e}".encode()
 
 #========================= Test Payload ===========================
