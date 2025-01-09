@@ -234,7 +234,9 @@ def send_to_receiver(data):
             s.bind(("0.0.0.0", 6000))  # Bind to a specific local port
             s.connect((RECEIVERHOST , 5001))  
             s.sendall(data)
+            print("data send จริงๆ")
             response = s.recv(1024)
+            print(response.decode())
         return response
     except socket.timeout:
         return b"Error: Receiver timed out."
