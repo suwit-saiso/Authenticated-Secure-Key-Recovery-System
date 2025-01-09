@@ -234,7 +234,8 @@ def send_to_receiver(data):
             print("data send จริงๆ")
             s.bind(("0.0.0.0", 6000))  # Bind to a specific local port
             s.connect((RECEIVERHOST , 5001))  
-            s.sendall(data)
+            # s.sendall(data)
+            s.sendall(len(data).to_bytes(4, byteorder="big") + data)
             response = s.recv(1024)
             print(response.decode())
         return response
@@ -326,7 +327,8 @@ def handle_message():
     # save_payload_to_file(payload)
 
     # Send payload to Receiver
-    response = send_to_receiver(json.dumps(payload).encode())
+    datas = json.dumps(payload).encode("utf-8")
+    response = send_to_receiver(datas)
     return jsonify({"response": response.decode()})
 
 if __name__ == "__main__":
