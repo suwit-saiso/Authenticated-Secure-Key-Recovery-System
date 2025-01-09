@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   genkeys:
+    image: generate-keys:lasted
     container_name: generate_key
     build:
       context: ./generate_key
@@ -22,8 +23,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    networks:
+      - app_network
 
   sender:
+    image: sender:lasted
     container_name: sender
     build:
       context: .
@@ -41,6 +45,7 @@ services:
       - app_network
 
   receiver:
+    image: receiver:lasted
     container_name: receiver
     build:
       context: ./Receiver
@@ -58,6 +63,7 @@ services:
       - app_network
 
   krc:
+    image: krc:lasted
     container_name: krc
     build:
       context: .
@@ -74,6 +80,7 @@ services:
       - app_network
 
   kra:
+    image: kra:lasted
     container_name: kra
     build:
       context: ./KRA
