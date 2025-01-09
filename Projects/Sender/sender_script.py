@@ -231,10 +231,10 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
 def send_to_receiver(data):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            print("data send จริงๆ")
             s.bind(("0.0.0.0", 6000))  # Bind to a specific local port
             s.connect((RECEIVERHOST , 5001))  
             s.sendall(data)
-            print("data send จริงๆ")
             response = s.recv(1024)
             print(response.decode())
         return response
@@ -307,7 +307,7 @@ def handle_message():
             "encrypted_AES_key": encrypted_aes_key.hex(),
             "iv_aes": iv_aes.hex()
         }
-        print("Payload:", json.dumps(payload, indent=4))
+        # print("Payload:", json.dumps(payload, indent=4))
     else:
         print("i'm now here at stage2")
         # Use existing session
@@ -320,7 +320,7 @@ def handle_message():
             "iv": iv.hex(),
             "encrypted_message": encrypted_message.hex()
         }
-        print("Payload:", json.dumps(payload, indent=4))
+        # print("Payload:", json.dumps(payload, indent=4))
 
     # disable after TEST PHASE!!!
     # save_payload_to_file(payload)
