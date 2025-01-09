@@ -106,6 +106,7 @@ def handle_client(client_socket):
 
 #========================= Main =========================
 def main():
+    print(f"DEBUG: {KRA_ID} script has started executing.")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind(("0.0.0.0", LISTEN_PORT))
     server_socket.listen(5)
