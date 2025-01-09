@@ -32,7 +32,7 @@ COPY ./Sender/keys /app/keys
 COPY ./Shared/keys /app/Shared/keys
 
 # Expose the port the Flask app runs on
-EXPOSE 5000
+EXPOSE 5000 6000
 
 # Command to run the Sender application
 CMD ["python", "sender.py"]
