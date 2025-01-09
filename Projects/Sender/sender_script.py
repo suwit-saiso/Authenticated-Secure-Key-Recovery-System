@@ -235,8 +235,12 @@ def send_to_receiver(data):
             s.sendall(data)
             response = s.recv(1024)
         return response
+    except socket.timeout:
+        return b"Error: Receiver timed out."
+    except ConnectionRefusedError:
+        return b"Error: Connection refused."
     except Exception as e:
-        return f"Error communicating with Receiver: {e}".encode()
+        return f"Error: {e}".encode()
 
 #========================= Test Payload ===========================
 def save_payload_to_file(payload, filename="payload.json"):
