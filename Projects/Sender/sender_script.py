@@ -236,6 +236,7 @@ def send_to_receiver(data):
             s.connect((RECEIVERHOST , 5001))  
             # s.sendall(data)
             s.sendall(len(data).to_bytes(4, byteorder="big") + data)
+            print("ส่งแล้วน่ะ รอตอบกลับ")
             response = s.recv(1024)
             print(response.decode())
         return response
