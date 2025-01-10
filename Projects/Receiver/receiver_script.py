@@ -83,14 +83,21 @@ LISTEN_PORT = 5001
 
 #========================= Encryption/Decryption Functions =========================
 def decrypt_session_key(encrypted_session_key):    
-    print(f"Attempting to decrypt session key: {encrypted_session_key}")
-    # Decrypt the session key using receiver's private key
-    session_key = receiver_private_key.decrypt(
-        encrypted_session_key,
-        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-    )
-    print("Decryption successful!")
-    return session_key
+    try:
+        print(f"Attempting to decrypt session key. Length: {len(encrypted_session_key)} bytes")
+        # Decrypt the session key using receiver's private key
+        session_key = receiver_private_key.decrypt(
+            encrypted_session_key,
+            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+        )
+        print("Decryption of session key successful!")
+        return session_key
+    except ValueError as e:
+        print(f"Decryption failed: {e}")
+        raise ValueError("Session key decryption failed. Ensure the correct public/private keys are used.") from e
+    except Exception as e:
+        print(f"Unexpected error during session key decryption: {e}")
+        raise
 
 def encrypt_plaintext(plaintext, session_key):
     # Generate a random initialization vector (IV)
@@ -111,17 +118,30 @@ def encrypt_plaintext(plaintext, session_key):
 
 # Decrypt the ciphertext using the session key (AES)
 def decrypt_plaintext(encrypted_message, session_key, iv):
-    if isinstance(iv, str):
-        iv = bytes.fromhex(iv)  # Convert hex string to bytes if necessary
+    try:
+        print("Starting plaintext decryption...")
+        print(f"Encrypted message length: {len(encrypted_message)} bytes")
+        print(f"IV length: {len(iv)} bytes")
 
-    # Create an AES cipher object for decryption
-    cipher = Cipher(algorithms.AES(session_key), modes.CFB(iv))
-    decryptor = cipher.decryptor()
-    
-    # Decrypt the message
-    plaintext = decryptor.update(encrypted_message) + decryptor.finalize()
-    
-    return plaintext.decode()
+        # Ensure IV is in bytes
+        if isinstance(iv, str):
+            print("IV provided as a hex string; converting to bytes.")
+            iv = bytes.fromhex(iv)
+
+        # Create an AES cipher object for decryption
+        cipher = Cipher(algorithms.AES(session_key), modes.CFB(iv))
+        decryptor = cipher.decryptor()
+        
+        # Decrypt the message
+        plaintext = decryptor.update(encrypted_message) + decryptor.finalize()
+        print("Decryption successful!")
+        return plaintext.decode()
+    except ValueError as e:
+        print(f"Decryption failed: {e}")
+        raise ValueError("Decryption failed. Check session key, IV, and message integrity.") from e
+    except Exception as e:
+        print(f"Unexpected error during plaintext decryption: {e}")
+        raise
 
 def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
@@ -407,6 +427,7 @@ def handle_sender_connection(conn):
             if not data:
                 print("No data received.")
                 return
+            print("data received")
             # request = json.loads(data)  # Parse JSON
         except socket.timeout:
             print("Connection timed out.")
