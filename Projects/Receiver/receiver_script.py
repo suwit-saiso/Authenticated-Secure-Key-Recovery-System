@@ -605,5 +605,6 @@ def manual_test():
 
 # Run Flask app and socket server concurrently
 if __name__ == '__main__':
+    print(receiver_public_key)
     threading.Thread(target=start_socket_server, daemon=True).start()
     app.run(host='0.0.0.0', port=5050)
