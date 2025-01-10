@@ -55,9 +55,12 @@ def main():
         # Special case: If entity is one of kra1 to kra5, place them inside the KRA folder
         if entity.startswith("kra"):
             entity_folder = os.path.join(CONTAINERS_FOLDER, "KRA", entity, "keys")
+        elif entity.startswith("krc"):
+            entity_folder = os.path.join(CONTAINERS_FOLDER, "KRC", "keys")
         else:
             # For all other entities, use their own folder directly under the parent folder
-            entity_folder = os.path.join(CONTAINERS_FOLDER, entity, "keys")
+            capitalized_entity = entity.capitalize()
+            entity_folder = os.path.join(CONTAINERS_FOLDER, capitalized_entity, "keys")
         
         shared_public_key_path = os.path.join(SHARED_KEYS_FOLDER, f"{entity}_public.pem")
         entity_private_key_path = os.path.join(entity_folder, f"{entity}_private.pem")
