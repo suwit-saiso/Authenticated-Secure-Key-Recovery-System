@@ -585,4 +585,4 @@ def manual_test():
 # Run Flask app and socket server concurrently
 if __name__ == '__main__':
     threading.Thread(target=start_socket_server, daemon=True).start()
-    app.run(host='192.168.1.12', port=5050)
+    app.run(host='0.0.0.0', port=5050)
