@@ -400,14 +400,14 @@ def handle_sender_connection(conn):
     try:
         conn.settimeout(10)  # Set a timeout for the connection
         try:
-            # length = int.from_bytes(conn.recv(4), byteorder="big")
-            # data = conn.recv(length)
-            # request = json.loads(data.decode("utf-8"))
-            data = conn.recv(4096).decode("utf-8")
+            length = int.from_bytes(conn.recv(4), byteorder="big")
+            data = conn.recv(length)
+            request = json.loads(data.decode("utf-8"))
+            # data = conn.recv(4096).decode("utf-8")
             if not data:
                 print("No data received.")
                 return
-            request = json.loads(data)  # Parse JSON
+            # request = json.loads(data)  # Parse JSON
         except socket.timeout:
             print("Connection timed out.")
             conn.sendall(json.dumps({"error": "Connection timed out"}).encode())
