@@ -74,11 +74,11 @@ except FileNotFoundError as e:
 sessions = {}
 
 # Socket communication setup for KRC
-KRC_HOST = '0.0.0.0'  # Update with actual KRC container IP/hostname
+KRC_HOST = '192.168.1.13'  # Update with actual KRC container IP/hostname
 KRC_PORT = 5002
 
 # Socket server for sender-reciver communication to listen
-LISTEN_HOST = '0.0.0.0'
+LISTEN_HOST = '192.168.1.12'
 LISTEN_PORT = 5001
 
 #========================= Encryption/Decryption Functions =========================
@@ -585,4 +585,4 @@ def manual_test():
 # Run Flask app and socket server concurrently
 if __name__ == '__main__':
     threading.Thread(target=start_socket_server, daemon=True).start()
-    app.run(host='0.0.0.0', port=5050)
+    app.run(host='192.168.1.12', port=5050)

@@ -108,7 +108,7 @@ def handle_client(client_socket):
 def main():
     print(f"DEBUG: {KRA_ID} script has started executing.")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(("0.0.0.0", LISTEN_PORT))
+    server_socket.bind(("192.168.1.14", LISTEN_PORT))
     server_socket.listen(5)
     print(f"{KRA_ID} listening on port {LISTEN_PORT}")
     

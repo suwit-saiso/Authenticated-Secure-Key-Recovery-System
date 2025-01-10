@@ -103,7 +103,7 @@ services:
       - ./Shared/keys:/app/Shared/keys
     networks:
       app_network:
-        ipv4_address: 192.168.1.4
+        ipv4_address: 192.168.1.14
     command: ["/bin/sh", "-c", "python3 kra.py && python3 kra1/kra1.py && python3 kra2/kra2.py && python3 kra3/kra3.py && python3 kra4/kra4.py && python3 kra5/kra5.py"]
 
 networks:

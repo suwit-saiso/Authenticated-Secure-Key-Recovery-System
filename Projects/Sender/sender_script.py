@@ -54,7 +54,7 @@ try:
 except FileNotFoundError as e:
     raise FileNotFoundError(f"Key file not found: {e}")
 
-RECEIVERHOST = '0.0.0.0'
+RECEIVERHOST = "192.168.1.12"
 
 #========================= Utility Functions =========================
 # Generate session key (AES key)
@@ -240,7 +240,7 @@ def send_to_receiver(data):
             # response = s.recv(1024)
             # print(response.decode())
             print("Creating socket...")
-            s.bind(("0.0.0.0", 6000))  # Use a dynamic port
+            s.bind(("192.168.1.11", 6000))  # Use a dynamic port
             print(f"Connecting to {RECEIVERHOST}:5001...")
             s.connect((RECEIVERHOST, 5001))
             print("Connection successful, sending data...")
@@ -260,28 +260,28 @@ def send_to_receiver(data):
         return f"Error: {e}".encode()
 
 #========================= Test Payload ===========================
-def save_payload_to_file(payload, filename="payload.json"):
-    """
-    Save the given payload to a file in JSON format.
+# def save_payload_to_file(payload, filename="payload.json"):
+#     """
+#     Save the given payload to a file in JSON format.
 
-    Args:
-        payload (dict): The payload to save.
-        filename (str): The name of the file to save the payload to. Defaults to "payload.json".
-    """
-    try:
-        # Ensure all bytes are converted to a JSON-serializable format
-        serialized_payload = {
-            key: (value.hex() if isinstance(value, bytes) else value)
-            for key, value in payload.items()
-        }
+#     Args:
+#         payload (dict): The payload to save.
+#         filename (str): The name of the file to save the payload to. Defaults to "payload.json".
+#     """
+#     try:
+#         # Ensure all bytes are converted to a JSON-serializable format
+#         serialized_payload = {
+#             key: (value.hex() if isinstance(value, bytes) else value)
+#             for key, value in payload.items()
+#         }
 
-        # Write serialized payload to a file
-        with open(filename, "w") as file:
-            json.dump(serialized_payload, file, indent=4)
-        print(f"Payload saved to {filename}")
-    except Exception as e:
-        print(f"Error saving payload to file: {e}")
-        raise
+#         # Write serialized payload to a file
+#         with open(filename, "w") as file:
+#             json.dump(serialized_payload, file, indent=4)
+#         print(f"Payload saved to {filename}")
+#     except Exception as e:
+#         print(f"Error saving payload to file: {e}")
+#         raise
 
 #========================= Session Manager =========================
 current_session = {
@@ -345,4 +345,4 @@ def handle_message():
     return jsonify({"response": response.decode()})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="192.168.1.11", port=5000)

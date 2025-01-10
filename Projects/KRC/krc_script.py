@@ -296,13 +296,12 @@ def encrypt_session_key(session_key):
     return encrypted_session_key
 
 #====================== Utility Functions ======================
-
 # Utility functions for communication with KRAs
 def send_to_kra(kra_index, encrypted_data):
     """
     Send data to a KRA using a socket connection.
     """
-    host = "0.0.0.0"
+    host = "192.168.1.14"
     port = 5002 + kra_index  # Each KRA gets a unique port starting from 5003.
     
     try:
@@ -322,7 +321,7 @@ def receive_from_kra(kra_index):
     """
     Receive data from a KRA using a socket connection.
     """
-    host = "0.0.0.0"
+    host = "192.168.1.14"
     port = 5002 + kra_index  # Each KRA gets a unique port starting from 5003.
     
     try:
@@ -503,7 +502,7 @@ def main():
     print("DEBUG: KRC script has started executing.")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind(("0.0.0.0", KRC_PORT))
+    server_socket.bind(("192.168.1.13", KRC_PORT))
     server_socket.listen(5)
     print(f"KRC listening on port {KRC_PORT}")
     
