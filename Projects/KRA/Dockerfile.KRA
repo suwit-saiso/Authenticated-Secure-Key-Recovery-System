@@ -32,4 +32,4 @@ ENV KRA_ID=${KRA_DIR} \
 EXPOSE ${LISTEN_PORT}
 
 # Run the KRA script
-CMD ["python", "./kra.py"]
+CMD ["python","-u", "./kra.py"]

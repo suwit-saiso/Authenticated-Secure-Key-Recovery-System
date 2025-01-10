@@ -33,4 +33,4 @@ EXPOSE 5001 5050
 ENV FLASK_ENV=development
 
 # Command to run the application
-CMD ["python", "receiver_script.py"]
+CMD ["python","-u", "receiver_script.py"]

@@ -31,4 +31,4 @@ COPY ./Shared/keys /app/Shared/keys
 EXPOSE 5002
 
 # Command to run the krc_script.py when the container starts
-CMD ["python", "krc_script.py"]
+CMD ["python","-u", "krc_script.py"]
