@@ -24,7 +24,8 @@ services:
       timeout: 5s
       retries: 3
     networks:
-      - app_network
+      app_network:
+        ipv4_address: 192.168.1.10
 
   sender:
     image: sender:lasted
@@ -42,7 +43,8 @@ services:
       - ./Sender/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
     networks:
-      - app_network
+      app_network:
+        ipv4_address: 192.168.1.11
 
   receiver:
     image: receiver:lasted
@@ -60,7 +62,8 @@ services:
       - ./Receiver/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
     networks:
-      - app_network
+      app_network:
+        ipv4_address: 192.168.1.12
 
   krc:
     image: krc:lasted
@@ -77,7 +80,8 @@ services:
       - ./KRC/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
     networks:
-      - app_network
+      app_network:
+        ipv4_address: 192.168.1.13
 
   kra:
     image: kra:lasted
@@ -98,9 +102,13 @@ services:
       - ./KRA/kra5/keys:/app/kra5/keys
       - ./Shared/keys:/app/Shared/keys
     networks:
-      - app_network
+      app_network:
+        ipv4_address: 192.168.1.4
     command: ["/bin/sh", "-c", "python3 kra.py && python3 kra1/kra1.py && python3 kra2/kra2.py && python3 kra3/kra3.py && python3 kra4/kra4.py && python3 kra5/kra5.py"]
 
 networks:
   app_network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
