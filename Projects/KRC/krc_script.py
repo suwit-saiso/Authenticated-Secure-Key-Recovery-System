@@ -100,6 +100,7 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
     # decrypt the KRF with AES key and iv_aes
     print("Start decrypt KRF.")
     krf = decrypt_data(encrypted_krf, decrypted_AES_key, iv_aes)
+    
     print("finish decrypting request.")
     return krf, requester_challenge_verifier, request_session_id, request_timestamp
 
@@ -435,7 +436,6 @@ def receive_request(client_socket):
         length = int.from_bytes(client_socket.recv(4), byteorder="big")
         data = client_socket.recv(length)
         # data = client_socket.recv(4096).decode("utf-8")  # Convert bytes to string
-        print("Loaded data from requester:", data)
         if not data:
             print("No data received.")
             return
@@ -443,7 +443,9 @@ def receive_request(client_socket):
         # Parse JSON string into a Python dictionary
         data = json.loads(data.decode("utf-8"))
         # data = json.loads(data)
-        
+        print("Loaded data from requester:", data)
+        print("Data size in bytes:", len(data))
+
         print('Receiving data from Requester')
         encrypted_request = bytes.fromhex(data['encrypted_request'])
         encrypted_krf = bytes.fromhex(data['encrypted_krf'])

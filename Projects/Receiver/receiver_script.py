@@ -293,7 +293,7 @@ def receive_response_from_krc():
     s = None
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(10)  # Set a 10-second timeout
+        s.settimeout(30)  # Set a 30-second timeout
         s.connect((KRC_HOST, KRC_PORT))
         response = s.recv(1024)
         return json.loads(response.decode())
