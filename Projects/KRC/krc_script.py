@@ -130,8 +130,15 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
     # print("Decrypted KRF:",krf)
     # print("Start extracting OtherInformation")
     encrypted_other_info = krf["OtherInformation"] # This is a dictionary now
-    print("Encrypted otherInfo:",encrypted_other_info)
-    encrypted_session_info = bytes.fromhex(encrypted_other_info["Info"])  # Convert hex string to bytes
+    print("Hex string length:", len(encrypted_other_info["Info"]))
+    print("Hex string content (first 100 chars):", encrypted_other_info["Info"][:100])  # Preview the string
+    try:
+        encrypted_session_info = bytes.fromhex(encrypted_other_info["Info"])
+        print("Hex to bytes conversion successful!")
+    except ValueError as e:
+        print(f"Hex decoding error: {e}")
+        raise
+
     print("Encrypted session Info:",encrypted_session_info)
     session_info_decrypted = krc_private_key.decrypt(
         encrypted_session_info,

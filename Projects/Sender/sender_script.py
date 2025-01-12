@@ -88,7 +88,6 @@ def aes_encrypt(data, key, iv):
     padded_data = data + bytes([pad_len] * pad_len)
     return encryptor.update(padded_data) + encryptor.finalize()
 
-
 # Encrypt session key and message for first establishment
 def first_establishment(plaintext, receiver_public_key, krc_public_key):
     """
@@ -150,7 +149,6 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
 
     # Package the session_id, encrypted session key, IVs, encrypted message, and KRF
     return session_id, session_key, encrypted_session_key, iv, encrypted_message, encrypted_krf, encrypted_aes_key, iv_aes
-
 
 # Split session key into parts for KRF
 def xor(bytes1, bytes2):
@@ -224,7 +222,8 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
     except Exception as e:
         print("Error encrypting session_info:", e)
         raise
-
+    print("Length of encrypted_session_info:", len(encrypted_info))
+    print("Encrypted session info (bytes):", encrypted_info[:16])  # Display a portion for inspection    
     print(f"Generated KRF: {len(krf)} components created successfully.")  # Log only metadata  
     return krf
 
