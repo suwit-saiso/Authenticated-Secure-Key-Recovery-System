@@ -197,7 +197,10 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         "encrypted_AES_key": encrypted_AES_key,
         "iv_aes": iv_AES
     }
-    print("Payload:", json.dumps(payload, indent=4))
+    # print("Payload:", json.dumps(payload, indent=4))
+    payload_json = json.dumps(payload)
+    payload_bytes = payload_json.encode('utf-8')
+    print("Payload size in bytes:", len(payload_bytes))
     # Send the encrypted request to the KRC
     data = json.dumps(payload).encode("utf-8")
     send_to_krc(data)
