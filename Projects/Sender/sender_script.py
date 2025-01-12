@@ -84,13 +84,10 @@ def aes_encrypt(data, key, iv):
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
     encryptor = cipher.encryptor()
     # Ensure data is padded to a multiple of block size (16 bytes for AES)
-    # pad_len = 16 - (len(data) % 16)
-    # padded_data = data + bytes([pad_len] * pad_len)
-    # return encryptor.update(padded_data) + encryptor.finalize()
+    pad_len = 16 - (len(data) % 16)
+    padded_data = data + bytes([pad_len] * pad_len)
+    return encryptor.update(padded_data) + encryptor.finalize()
 
-    # New test part
-    encrypted_message = encryptor.update(data.encode()) + encryptor.finalize()
-    return encrypted_message
 
 # Encrypt session key and message for first establishment
 def first_establishment(plaintext, receiver_public_key, krc_public_key):
@@ -136,7 +133,7 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
         # Generate an AES key for encrypting the KRF
         aes_key = os.urandom(32)  # AES-256 key
         iv_aes = os.urandom(16)  # IV for AES encryption
-        encrypted_krf = aes_encrypt(json.dumps(krf), aes_key, iv_aes)  # Encrypt the KRF with AES
+        encrypted_krf = aes_encrypt(json.dumps(krf).encode(), aes_key, iv_aes)  # Encrypt the KRF with AES
     except Exception as e:
         print("Error encrypting KRF with AES:", e)
         raise

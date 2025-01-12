@@ -70,16 +70,21 @@ def decrypt_data(data, AES_key, iv):
         # Ensure IV is in bytes
         if isinstance(iv, str):
             print("IV provided as a hex string; converting to bytes.")
-            iv = bytes.fromhex(iv) # Convert hex string to bytes
+            iv = bytes.fromhex(iv)  # Convert hex string to bytes
 
         # Create an AES cipher object for decryption
-        cipher = Cipher(algorithms.AES(AES_key), modes.CFB(iv))
+        cipher = Cipher(algorithms.AES(AES_key), modes.CBC(iv))
         decryptor = cipher.decryptor()
-        
+
         # Decrypt the KRF
-        krf = decryptor.update(data) + decryptor.finalize()
+        decrypted_data = decryptor.update(data) + decryptor.finalize()
         print("Decryption successful!")
-        return krf.decode() # Returns a string
+
+        # Remove padding
+        pad_len = decrypted_data[-1]
+        decrypted_data = decrypted_data[:-pad_len]  # Remove padding bytes
+
+        return decrypted_data.decode("utf-8")  # Returns a string
     except ValueError as e:
         print(f"Decryption failed: {e}")
         raise ValueError("Decryption failed. Check session key, IV, and message integrity.") from e
