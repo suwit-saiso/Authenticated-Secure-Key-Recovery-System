@@ -127,15 +127,17 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
     # Step: Decrypt session info
     print("Starting to decrypt KRF informations.")
     krf = json.loads(krf)  # Convert JSON string to a dictionary
-    print("Decrypted KRF:",krf)
-    print("Start extracting OtherInformation")
+    # print("Decrypted KRF:",krf)
+    # print("Start extracting OtherInformation")
     encrypted_other_info = krf["OtherInformation"] # This is a dictionary now
     print("Encrypted otherInfo:",encrypted_other_info)
     encrypted_session_info = bytes.fromhex(encrypted_other_info["Info"])  # Convert hex string to bytes
+    print("Encrypted session Info:",encrypted_session_info)
     session_info_decrypted = krc_private_key.decrypt(
         encrypted_session_info,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
+    print("decrypted session info:", session_info_decrypted)
     session_info = json.loads(session_info_decrypted.decode())
     print("Session Info:",session_info)
     krf_session_id = session_info["session_id"]
