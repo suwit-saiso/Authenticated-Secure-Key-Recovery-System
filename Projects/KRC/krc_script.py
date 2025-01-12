@@ -123,40 +123,77 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
     return krf, requester_challenge_verifier, request_session_id, request_timestamp
 
 # Function to decrypt the KRF and validate the request
+# Function to decrypt the KRF and validate the request
 def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp):
-    # Step: Decrypt session info
-    print("Starting to decrypt KRF informations.")
-    krf = json.loads(krf)  # Convert JSON string to a dictionary
-    # print("Decrypted KRF:",krf)
-    # print("Start extracting OtherInformation")
-    encrypted_other_info = krf["OtherInformation"] # This is a dictionary now
-    print("Hex string length:", len(encrypted_other_info["Info"]))
-    print("Hex string content (first 100 chars):", encrypted_other_info["Info"][:100])  # Preview the string
     try:
-        encrypted_session_info = bytes.fromhex(encrypted_other_info["Info"])
-        print("Hex to bytes conversion successful!")
+        # Step: Decrypt session info
+        print("Starting to decrypt KRF informations.")
+        
+        # Step 1: Parse the KRF JSON
+        try:
+            krf = json.loads(krf)  # Convert JSON string to a dictionary
+            print("KRF successfully parsed:", type(krf), krf.keys())  # Debug parsed object
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {e}")
+            raise ValueError("Failed to parse KRF JSON.") from e
+        
+        # Step 2: Extract 'OtherInformation' and check structure
+        try:
+            encrypted_other_info = krf["OtherInformation"]
+            print("OtherInformation found:", encrypted_other_info)
+            
+            if "Info" not in encrypted_other_info:
+                raise KeyError("Missing 'Info' key in 'OtherInformation'.")
+        except KeyError as e:
+            print(f"Key error: {e}")
+            raise ValueError("Invalid KRF structure. Missing required keys.") from e
+        
+        # Step 3: Validate 'Info' hex string
+        try:
+            hex_string = encrypted_other_info["Info"]
+            print("Hex string length:", len(hex_string))
+            print("Hex string content (first 100 chars):", hex_string[:100])  # Preview the string
+            encrypted_session_info = bytes.fromhex(hex_string)
+            print("Hex to bytes conversion successful!")
+        except ValueError as e:
+            print(f"Hex decoding error: {e}")
+            raise ValueError("Failed to decode 'Info' hex string to bytes.") from e
+        
+        # Step 4: Decrypt session info
+        try:
+            print("Attempting to decrypt session info...")
+            session_info_decrypted = krc_private_key.decrypt(
+                encrypted_session_info,
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+            )
+            print("Decryption successful!")
+            session_info = json.loads(session_info_decrypted.decode())
+            print("Session Info:", session_info)
+        except Exception as e:
+            print(f"Decryption error: {e}")
+            raise ValueError("Failed to decrypt or parse session info.") from e
+
+        # Step 5: Validate session ID and timestamp
+        try:
+            krf_session_id = session_info["session_id"]
+            krf_timestamp = session_info["timestamp"]
+
+            print("Validating session and timestamp...")
+            if krf_session_id != request_session_id or abs(request_timestamp - krf_timestamp) > 600:
+                raise ValueError("Invalid session ID or expired timestamp.")
+            print(f"Session ID: {krf_session_id}, Timestamp: {krf_timestamp}, validation complete.")
+        except KeyError as e:
+            print(f"Key error during validation: {e}")
+            raise ValueError("Session info missing required keys.") from e
+
+        return krf
+
     except ValueError as e:
-        print(f"Hex decoding error: {e}")
+        print(f"Validation error: {e}")
         raise
-
-    print("Encrypted session Info:",encrypted_session_info)
-    session_info_decrypted = krc_private_key.decrypt(
-        encrypted_session_info,
-        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-    )
-    print("decrypted session info:", session_info_decrypted)
-    session_info = json.loads(session_info_decrypted.decode())
-    print("Session Info:",session_info)
-    krf_session_id = session_info["session_id"]
-    krf_timestamp = session_info["timestamp"]
-    
-    print("Start validate request.")
-    # Step: Validate session and check timestamp
-    if krf_session_id != request_session_id or abs(request_timestamp - krf_timestamp) > 600:
-        raise ValueError("Invalid session or expired request.")
-    print(f"Session ID: {krf_session_id}, Timestamp: {krf_timestamp}, validation complete.")
-
-    return krf
+    except Exception as e:
+        print(f"Unexpected error during KRF decryption and validation: {e}")
+        raise
 
 # Verify the requester using PKCE-like challenge 
 def verify_requester(challenge_code, requester_challenge_verifier):
