@@ -432,13 +432,17 @@ def handle_kra_failure(krf_i_list, krf):
 def receive_request(client_socket):
     try:
         # Receive data
-        data = client_socket.recv(4096).decode("utf-8")  # Convert bytes to string
+        length = int.from_bytes(client_socket.recv(4), byteorder="big")
+        data = client_socket.recv(length)
+        # data = client_socket.recv(4096).decode("utf-8")  # Convert bytes to string
         print("Loaded data from requester:", data)
         if not data:
+            print("No data received.")
             return
 
         # Parse JSON string into a Python dictionary
-        data = json.loads(data)
+        data = json.loads(data.decode("utf-8"))
+        # data = json.loads(data)
         
         print('Receiving data from Requester')
         encrypted_request = bytes.fromhex(data['encrypted_request'])

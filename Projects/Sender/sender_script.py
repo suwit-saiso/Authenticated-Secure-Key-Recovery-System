@@ -291,8 +291,6 @@ def handle_message():
     plaintext = data.get("message")
 
     print("Input message: ",plaintext) 
-    print(receiver_public_key)
-
     if not current_session["session_id"]:
         print("Creating a Session...")
         # Perform first establishment

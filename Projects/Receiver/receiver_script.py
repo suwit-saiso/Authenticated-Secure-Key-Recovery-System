@@ -282,6 +282,7 @@ def send_to_krc(data):
         print(f"Error in send_to_krc: {e}")
     finally:
         if s:
+            print("Closing connection waiting for response.")
             s.close()
 
 # Receive response from KRC 
@@ -524,6 +525,7 @@ def manual_test():
     data = request.json
     if data.get("command") == "start test":
         if not sessions:
+            # when start test before having data
             print("No session found")
             return jsonify({"message": "No session found"}), 404
 
@@ -554,6 +556,5 @@ def manual_test():
 
 # Run Flask app and socket server concurrently
 if __name__ == '__main__':
-    print(receiver_public_key)
     threading.Thread(target=start_socket_server, daemon=True).start()
     app.run(host='0.0.0.0', port=5050)

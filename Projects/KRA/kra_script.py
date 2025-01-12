@@ -58,6 +58,7 @@ def handle_client(client_socket):
         data = client_socket.recv(4096).decode("utf-8")  # Convert bytes to string
         print("Loaded data from KRC:", data)
         if not data:
+            print("No data received.")
             return
         
         # Parse data (assumes a simple JSON protocol) JSON string into a Python dictionary
