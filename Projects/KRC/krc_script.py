@@ -62,17 +62,30 @@ def generate_pkce_challenge():
 
 # Decrypt the data using the AES key and iv (AES)
 def decrypt_data(data, AES_key, iv):
-    if isinstance(iv, str):
-        iv = bytes.fromhex(iv)  # Convert hex string to bytes
+    try:
+        print("Starting KRF decryption...")
+        print(f"Encrypted KRF length: {len(data)} bytes")
+        print(f"IV length: {len(iv)} bytes")
 
-    # Create an AES cipher object for decryption
-    cipher = Cipher(algorithms.AES(AES_key), modes.CFB(iv))
-    decryptor = cipher.decryptor()
-    
-    # Decrypt the message
-    data = decryptor.update(data) + decryptor.finalize()
-    
-    return data.decode() # Returns a string
+        # Ensure IV is in bytes
+        if isinstance(iv, str):
+            print("IV provided as a hex string; converting to bytes.")
+            iv = bytes.fromhex(iv) # Convert hex string to bytes
+
+        # Create an AES cipher object for decryption
+        cipher = Cipher(algorithms.AES(AES_key), modes.CFB(iv))
+        decryptor = cipher.decryptor()
+        
+        # Decrypt the KRF
+        krf = decryptor.update(data) + decryptor.finalize()
+        print("Decryption successful!")
+        return krf.decode() # Returns a string
+    except ValueError as e:
+        print(f"Decryption failed: {e}")
+        raise ValueError("Decryption failed. Check session key, IV, and message integrity.") from e
+    except Exception as e:
+        print(f"Unexpected error during plaintext decryption: {e}")
+        raise
 
 #====================== Core Functions ======================
 # Function to receive and decrypt the request
@@ -100,8 +113,8 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
     # decrypt the KRF with AES key and iv_aes
     print("Start decrypt KRF.")
     krf = decrypt_data(encrypted_krf, decrypted_AES_key, iv_aes)
-    
-    print("finish decrypting request.")
+
+    print("Finish decrypting request.")
     return krf, requester_challenge_verifier, request_session_id, request_timestamp
 
 # Function to decrypt the KRF and validate the request
@@ -138,13 +151,20 @@ def verify_requester(challenge_code, requester_challenge_verifier):
 def client_validation(client_socket, requester_challenge_verifier):
     try:
         # Receive data
-        data = client_socket.recv(4096).decode()  # Convert bytes to string
-        print("Loaded data from requester for validation:", data)
+        length = int.from_bytes(client_socket.recv(4), byteorder="big")
+        data = client_socket.recv(length)
+        # data = client_socket.recv(4096).decode()  # Convert bytes to string
         if not data:
+            print("No data received whilefrom requester.")
             return
 
         # Parse JSON string into a Python dictionary
-        data = json.loads(data)
+        # data = json.loads(data)
+        data = json.loads(data.decode("utf-8"))
+        print("Loaded data from requester for validation:")
+        payload_json = json.dumps(data)
+        payload_bytes = payload_json.encode('utf-8')
+        print("Data size in bytes:", len(payload_bytes))
         
         print('Receiving data from Requester after validated request')
         encrypted_challenge = bytes.fromhex(data['encrypted_challenge_code'])
@@ -443,8 +463,10 @@ def receive_request(client_socket):
         # Parse JSON string into a Python dictionary
         data = json.loads(data.decode("utf-8"))
         # data = json.loads(data)
-        print("Loaded data from requester:", data)
-        print("Data size in bytes:", len(data))
+        print("Loaded data from requester:")
+        payload_json = json.dumps(data)
+        payload_bytes = payload_json.encode('utf-8')
+        print("Data size in bytes:", len(payload_bytes))
 
         print('Receiving data from Requester')
         encrypted_request = bytes.fromhex(data['encrypted_request'])
