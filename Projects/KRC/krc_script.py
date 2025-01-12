@@ -123,7 +123,6 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
     return krf, requester_challenge_verifier, request_session_id, request_timestamp
 
 # Function to decrypt the KRF and validate the request
-# Function to decrypt the KRF and validate the request
 def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp):
     try:
         # Step: Decrypt session info
@@ -137,17 +136,25 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
             print(f"JSON parsing error: {e}")
             raise ValueError("Failed to parse KRF JSON.") from e
         
-        # Step 2: Extract 'OtherInformation' and check structure
+        # Step 2: Extract 'OtherInformation' and parse if necessary
         try:
             encrypted_other_info = krf["OtherInformation"]
             print("OtherInformation found:", encrypted_other_info)
-            
+
+            # Parse if OtherInformation is a JSON string
+            if isinstance(encrypted_other_info, str):
+                print("OtherInformation is a string; attempting to parse JSON.")
+                encrypted_other_info = json.loads(encrypted_other_info)
+
             if "Info" not in encrypted_other_info:
                 raise KeyError("Missing 'Info' key in 'OtherInformation'.")
         except KeyError as e:
             print(f"Key error: {e}")
             raise ValueError("Invalid KRF structure. Missing required keys.") from e
-        
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error for 'OtherInformation': {e}")
+            raise ValueError("Failed to parse 'OtherInformation' JSON.") from e
+
         # Step 3: Validate 'Info' hex string
         try:
             hex_string = encrypted_other_info["Info"]
@@ -194,6 +201,7 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
     except Exception as e:
         print(f"Unexpected error during KRF decryption and validation: {e}")
         raise
+
 
 # Verify the requester using PKCE-like challenge 
 def verify_requester(challenge_code, requester_challenge_verifier):
