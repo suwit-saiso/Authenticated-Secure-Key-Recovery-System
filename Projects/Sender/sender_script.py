@@ -136,7 +136,7 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
         # Generate an AES key for encrypting the KRF
         aes_key = os.urandom(32)  # AES-256 key
         iv_aes = os.urandom(16)  # IV for AES encryption
-        encrypted_krf = aes_encrypt(json.dumps(krf).encode(), aes_key, iv_aes)  # Encrypt the KRF with AES
+        encrypted_krf = aes_encrypt(json.dumps(krf), aes_key, iv_aes)  # Encrypt the KRF with AES
     except Exception as e:
         print("Error encrypting KRF with AES:", e)
         raise
