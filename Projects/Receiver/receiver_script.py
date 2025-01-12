@@ -199,7 +199,8 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
     }
     print("Payload:", json.dumps(payload, indent=4))
     # Send the encrypted request to the KRC
-    send_to_krc(payload)
+    data = json.dumps(payload).encode("utf-8")
+    send_to_krc(data)
 
     # Simulate receiving response from KRC
     krc_response = receive_response_from_krc()
@@ -215,7 +216,8 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
             "encrypted_challenge_code": encrypted_challenge_code.hex()
         }
         print("Payload:", json.dumps(payload, indent=4))
-        send_to_krc(payload)
+        data = json.dumps(payload).encode("utf-8")
+        send_to_krc(data)
         
         # Receive the response from KRC
         krc_auth_response = receive_response_from_krc()
@@ -271,9 +273,11 @@ def send_to_krc(data):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(10)  # Set a 10-second timeout
         s.connect((KRC_HOST, KRC_PORT))
-        s.sendall(data)
+        s.sendall(len(data).to_bytes(4, byteorder="big") + data)
     except socket.timeout:
         print("Timeout while sending data to KRC")
+    except ConnectionRefusedError:
+        print("Error: Connection refused.")
     except Exception as e:
         print(f"Error in send_to_krc: {e}")
     finally:
@@ -292,6 +296,9 @@ def receive_response_from_krc():
     except socket.timeout:
         print("Timeout while waiting for response from KRC")
         return {"error": "Timeout"}
+    except ConnectionRefusedError:
+        print("Error: Connection refused.")
+        return {"error": "Connection refused"}
     except Exception as e:
         print(f"Error in receive_response_from_krc: {e}")
         return {"error": str(e)}
@@ -307,9 +314,12 @@ def receive_from_krc():
         s.settimeout(10)  # Set a 10-second timeout
         s.connect((KRC_HOST, KRC_PORT))
         new_session_key = s.recv(1024)
-        return new_session_key
+        return json.loads(new_session_key.decode())
     except socket.timeout:
         print("Timeout while waiting for session key from KRC")
+        return None
+    except ConnectionRefusedError:
+        print("Error: Connection refused.")
         return None
     except Exception as e:
         print(f"Error in receive_from_krc: {e}")
@@ -356,79 +366,18 @@ def receive_from_sender(session_id, iv, encrypted_message):
     print("session_key_used: from sender")
     return {"decrypted_message": decrypted_message, "session_key_used": "from sender"}
 
-# Function to handle incoming data from the sender via socket
-# def handle_sender_connection(conn):
-#     try:
-#         data = conn.recv(4096).decode()
-#         print("Loaded data from receiver:", data)
-#         if not data:
-#             print("No data received.")
-#             return
-#         # If 'data' is a raw string read from a file
-#         if isinstance(data, str):
-#             request = json.loads(data)  # Parse the JSON string into a dict
-#         else:
-#             request = data  # Already a dict, no need to parse
-        
-#         # Validate required fields
-#         required_keys = ['session_id', 'iv', 'encrypted_message']
-#         for key in required_keys:
-#             if key not in request:
-#                 raise ValueError(f"Missing key: {key}")
-
-#         # Extract mandatory fields
-#         session_id = request['session_id']
-#         encrypted_message = request['encrypted_message']
-#         iv = request['iv']
-
-#         # Extract optional fields with default values
-#         encrypted_session_key = request.get('encrypted_session_key', None)
-#         encrypted_krf = request.get('encrypted_krf', None)
-#         encrypted_AES_key = request.get('encrypted_AES_key', None)
-#         iv_AES = request.get('iv_aes', None)
-
-#         if isinstance(encrypted_session_key, str):
-#                     # Convert hex string to bytes
-#                     encrypted_session_key = bytes.fromhex(encrypted_session_key)
-#         if isinstance(encrypted_message, str):
-#                     # Convert hex string to bytes
-#                     encrypted_message = bytes.fromhex(encrypted_message)
-
-#         print("Extracted data successfully.")
-#         # Handle session establishment or recovery
-#         if session_id not in sessions:
-#             print("Establishing new session...")
-#             # Create a new session if session_id does not exist
-#             session_key = decrypt_session_key(encrypted_session_key)
-#             if encrypted_krf:               
-#                 establish_session(session_id, session_key, encrypted_krf, iv, encrypted_message, encrypted_AES_key, iv_AES)
-#             print("Session established.")
-
-#         # Process message
-#         print("Processing message...")
-#         response = receive_from_sender(session_id, iv, encrypted_message)
-
-#         conn.sendall(json.dumps(response).encode())
-
-#     except Exception as e:
-#         print(f"Error handling sender connection: {e}")
-#         conn.sendall(json.dumps({"error": str(e)}).encode())
-#     finally:
-#         conn.close()
-
 def handle_sender_connection(conn):
     try:
         conn.settimeout(10)  # Set a timeout for the connection
         try:
             length = int.from_bytes(conn.recv(4), byteorder="big")
             data = conn.recv(length)
-            request = json.loads(data.decode("utf-8"))
-            # data = conn.recv(4096).decode("utf-8")
             if not data:
                 print("No data received.")
                 return
             print("data received")
-            # request = json.loads(data)  # Parse JSON
+            # Convert data bytes to dict
+            request = json.loads(data.decode("utf-8"))
         except socket.timeout:
             print("Connection timed out.")
             conn.sendall(json.dumps({"error": "Connection timed out"}).encode())

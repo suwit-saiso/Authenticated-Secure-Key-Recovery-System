@@ -55,7 +55,7 @@ def encrypt_message(message, public_key):
 def handle_client(client_socket):
     try:
         # Receive data
-        data = client_socket.recv(4096).decode()  # Convert bytes to string
+        data = client_socket.recv(4096).decode("utf-8")  # Convert bytes to string
         print("Loaded data from KRC:", data)
         if not data:
             return

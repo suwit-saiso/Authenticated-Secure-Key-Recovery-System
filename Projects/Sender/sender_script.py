@@ -231,14 +231,6 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
 def send_to_receiver(data):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            # print("data send จริงๆ")
-            # s.bind(("0.0.0.0", 6000))  # Bind to a specific local port
-            # s.connect((RECEIVERHOST , 5001))  
-            # s.sendall(data)
-            # # s.sendall(len(data).to_bytes(4, byteorder="big") + data)
-            # print("ส่งแล้วน่ะ รอตอบกลับ")
-            # response = s.recv(1024)
-            # print(response.decode())
             print("Creating socket...")
             s.bind(("192.168.1.11", 6000))  # Use a dynamic port
             print(f"Connecting to {RECEIVERHOST}:5001...")
