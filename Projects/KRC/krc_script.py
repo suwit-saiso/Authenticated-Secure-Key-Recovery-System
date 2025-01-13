@@ -282,10 +282,10 @@ def distribute_krf_to_kras(krf, kra_public_keys):
             payload_json = json.dumps(payload_1)
             payload_bytes1 = payload_json.encode('utf-8')
             print("Payload size in bytes:", len(payload_bytes1))
-            send_to_kra(i, payload_bytes1)
+            connection1 = send_to_kra(i, payload_bytes1)
 
             # Wait for the challenge verifier from KRA-i
-            kra_response = receive_from_kra(i)
+            kra_response = receive_from_kra(i,connection1)
             print("Extracting challenge verifier.")
             if kra_response["type"] != "challenge_response":
                 raise ValueError(f"Unexpected response type from KRA-{i}: {kra_response.get('type')}")         
@@ -321,10 +321,10 @@ def distribute_krf_to_kras(krf, kra_public_keys):
             payload_json = json.dumps(payload_2)
             payload_bytes2 = payload_json.encode('utf-8')
             print("Payload size in bytes:", len(payload_bytes2))
-            send_to_kra(i, payload_bytes2)
+            connection2 = send_to_kra(i, payload_bytes2)
 
             # Wait for KRA to return the KRF-i decrypted and re-encrypted with KRC's public key
-            encrypted_krf_i = receive_from_kra(i)
+            encrypted_krf_i = receive_from_kra(i,connection2)
             print(f"Extracting KRF-{i} from KRA.")
             if encrypted_krf_i["type"] != "krf_response":
                 raise ValueError(f"Unexpected response type from KRA-{i}: {kra_response.get('type')}")
@@ -395,9 +395,10 @@ def send_to_kra(kra_index, encrypted_data):
     """
     Send data to a KRA using a socket connection.
     """
-    host = "192.168.1.14"
+    host = f"192.168.1.{13 + int(kra_index)}"
     port = 5002 + kra_index  # Each KRA gets a unique port starting from 5003.
     
+    print(f"Debug: Check KRA-{kra_index} sending address host:{host} port:{port}")
     try:
         # Create a socket connection
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -405,34 +406,40 @@ def send_to_kra(kra_index, encrypted_data):
             sock.connect((host, port))  # Connect to the KRA server          
             sock.sendall(encrypted_data)
             print("send data to KRA.")
-    
+        return sock
     except socket.timeout:
         print("Timeout while sending data to KRC")
     except Exception as e:
         print(f"Error sending to KRA-{kra_index}: {e}")
 
-def receive_from_kra(kra_index):
+def receive_from_kra(kra_index,sock):
     """
     Receive data from a KRA using a socket connection.
     """
-    host = "192.168.1.14"
-    port = 5002 + kra_index  # Each KRA gets a unique port starting from 5003.
+    # host = "192.168.1.14"
+    # port = 5002 + kra_index  # Each KRA gets a unique port starting from 5003.
     
     try:
-        # Create a socket connection
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(10)  # Set a 10-second timeout
-            sock.connect((host, port))  # Connect to the KRA server
-            response = sock.recv(4096)
-            print("KRA data received.")
-            return json.loads(response.decode())
-
+        # # Create a socket connection
+        # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        #     sock.settimeout(10)  # Set a 10-second timeout
+        #     sock.connect((host, port))  # Connect to the KRA server
+        #     response = sock.recv(4096)
+        #     print("KRA data received.")
+        #     return json.loads(response.decode())
+        response = sock.recv(1024)
+        print(f"Response received from KRA-{kra_index}.")
+        return json.loads(response.decode())
     except socket.timeout:
         print(f"Timeout while waiting for response from KRA-{kra_index}")
         return {"error": "Timeout"}
     except Exception as e:
         print(f"Error receiving from KRA-{kra_index}: {e}")
         return {"error": str(e)}
+    finally:
+        if sock:
+            print(f"Closing connection after receiving data from KRA-{kra_index}.")
+            sock.close()
     
 # Function to handle individual KRA failures
 def handle_failed_kra(kra_index, payload, challenge_verifier):
@@ -443,10 +450,10 @@ def handle_failed_kra(kra_index, payload, challenge_verifier):
         print(f"Retrying communication with KRA-{kra_index} (Attempt {attempt}/{max_retries})...")
 
         # Send the payload to the KRA
-        send_to_kra(kra_index, payload)
+        connection = send_to_kra(kra_index, payload)
 
         # Wait for the challenge verifier response from KRA
-        kra_response = receive_from_kra(kra_index)
+        kra_response = receive_from_kra(kra_index,connection)
         if kra_response.get("type") == "challenge_response":
             try:
                 print(f"Extracting challenge verifier on attempt {attempt}...")

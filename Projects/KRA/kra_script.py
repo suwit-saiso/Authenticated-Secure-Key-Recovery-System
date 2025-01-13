@@ -29,8 +29,12 @@ private_key_path = os.path.join(script_dir, "keys", f"{KRA_ID}_private.pem")
 shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
 krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
 
+# Assign LISTEN_HOST dynamically
+LISTEN_HOST = f"192.168.1.{14 + int(KRA_ID[-1]) - 1}"
 # Port for the KRA (defaults to 5003, or can be set per KRA using an env variable)
 LISTEN_PORT = int(os.getenv("LISTEN_PORT", 5003 + int(KRA_ID[-1]) - 1))  # Ports 5003, 5004, etc.
+# Debug line
+print(f"{KRA_ID} will bind to {LISTEN_HOST}:{LISTEN_PORT}")
 
 # Load keys with error handling
 try:
@@ -107,9 +111,9 @@ def handle_client(client_socket):
 
 #========================= Main =========================
 def main():
-    print(f"DEBUG: {KRA_ID} script has started executing.")
+    print(f"{KRA_ID} script has started executing.")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(("192.168.1.14", LISTEN_PORT))
+    server_socket.bind((LISTEN_HOST, LISTEN_PORT))
     server_socket.listen(5)
     print(f"{KRA_ID} listening on port {LISTEN_PORT}")
     
