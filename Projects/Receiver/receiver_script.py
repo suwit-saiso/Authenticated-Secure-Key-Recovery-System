@@ -169,7 +169,10 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         # Generate PKCE-like challenge
         challenge_code, challenge_verifier = generate_pkce_challenge()
         timestamp = int(time.time())  # Add current timestamp
-
+        
+        print("!!!IMPORTANT!!!")
+        print("Debug challenge code:", challenge_code)
+        print("Debug challenge verifier", challenge_verifier)
         # Prepare key recovery request to KRC
         recovery_request = {
             'challenge_verifier': challenge_verifier.hex(),  # Convert byte data to hex string

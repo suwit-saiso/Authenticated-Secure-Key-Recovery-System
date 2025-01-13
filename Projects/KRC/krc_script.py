@@ -238,6 +238,10 @@ def client_validation(client_socket, requester_challenge_verifier):
         )
 
         print("Verifying requester with challenge code.")
+        print("!!!IMPORTANT!!!")
+        print("Debug challenge code:", decrypted_challenge)
+        print("Debug challenge verifier", requester_challenge_verifier)
+        print("Start verify now")
         verification = verify_requester(decrypted_challenge, requester_challenge_verifier)
         if verification != "Requester verified successfully.":
             print("Authorization failed.")
