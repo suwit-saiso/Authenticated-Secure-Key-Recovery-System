@@ -428,7 +428,7 @@ def receive_from_kra(kra_index):
             return json.loads(response.decode())
 
     except socket.timeout:
-        print("Timeout while waiting for response from KRC")
+        print(f"Timeout while waiting for response from KRA-{kra_index}")
         return {"error": "Timeout"}
     except Exception as e:
         print(f"Error receiving from KRA-{kra_index}: {e}")
