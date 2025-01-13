@@ -83,28 +83,110 @@ services:
       app_network:
         ipv4_address: 192.168.1.13
 
-  kra:
+  kra1:
     image: kra:lasted
-    container_name: kra
+    container_name: kra1
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
     depends_on:
       genkeys:
         condition: service_completed_successfully
+    environment:
+      KRA_ID: kra1
+      LISTEN_PORT: 5003
     ports:
-      - "5003-5007:5003-5007"
+      - "5003:5003"
     volumes:
-      - ./KRA/kra1/keys:/app/kra1/keys
-      - ./KRA/kra2/keys:/app/kra2/keys
-      - ./KRA/kra3/keys:/app/kra3/keys
-      - ./KRA/kra4/keys:/app/kra4/keys
-      - ./KRA/kra5/keys:/app/kra5/keys
+      - ./KRA/kra1/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
     networks:
       app_network:
         ipv4_address: 192.168.1.14
-    command: ["/bin/sh", "-c", "python3 kra.py && python3 kra1/kra1.py && python3 kra2/kra2.py && python3 kra3/kra3.py && python3 kra4/kra4.py && python3 kra5/kra5.py"]
+
+  kra2:
+    image: kra:lasted
+    container_name: kra2
+    build:
+      context: ./KRA
+      dockerfile: Dockerfile.KRA
+    depends_on:
+      genkeys:
+        condition: service_completed_successfully
+    environment:
+      KRA_ID: kra2
+      LISTEN_PORT: 5004
+    ports:
+      - "5004:5004"
+    volumes:
+      - ./KRA/kra2/keys:/app/keys
+      - ./Shared/keys:/app/Shared/keys
+    networks:
+      app_network:
+        ipv4_address: 192.168.1.15
+
+  kra3:
+    image: kra:lasted
+    container_name: kra3
+    build:
+      context: ./KRA
+      dockerfile: Dockerfile.KRA
+    depends_on:
+      genkeys:
+        condition: service_completed_successfully
+    environment:
+      KRA_ID: kra3
+      LISTEN_PORT: 5005
+    ports:
+      - "5005:5005"
+    volumes:
+      - ./KRA/kra3/keys:/app/keys
+      - ./Shared/keys:/app/Shared/keys
+    networks:
+      app_network:
+        ipv4_address: 192.168.1.16
+
+  kra4:
+    image: kra:lasted
+    container_name: kra4
+    build:
+      context: ./KRA
+      dockerfile: Dockerfile.KRA
+    depends_on:
+      genkeys:
+        condition: service_completed_successfully
+    environment:
+      KRA_ID: kra4
+      LISTEN_PORT: 5006
+    ports:
+      - "5006:5006"
+    volumes:
+      - ./KRA/kra4/keys:/app/keys
+      - ./Shared/keys:/app/Shared/keys
+    networks:
+      app_network:
+        ipv4_address: 192.168.1.17
+
+  kra5:
+    image: kra:lasted
+    container_name: kra5
+    build:
+      context: ./KRA
+      dockerfile: Dockerfile.KRA
+    depends_on:
+      genkeys:
+        condition: service_completed_successfully
+    environment:
+      KRA_ID: kra5
+      LISTEN_PORT: 5007
+    ports:
+      - "5007:5007"
+    volumes:
+      - ./KRA/kra5/keys:/app/keys
+      - ./Shared/keys:/app/Shared/keys
+    networks:
+      app_network:
+        ipv4_address: 192.168.1.18
 
 networks:
   app_network:
