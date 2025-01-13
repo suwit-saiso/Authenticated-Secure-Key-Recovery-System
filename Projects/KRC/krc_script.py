@@ -218,7 +218,7 @@ def client_validation(client_socket, requester_challenge_verifier):
         data = client_socket.recv(length)
         # data = client_socket.recv(4096).decode()  # Convert bytes to string
         if not data:
-            print("No data received whilefrom requester.")
+            print("No data received while requester validation.")
             return
 
         # Parse JSON string into a Python dictionary
