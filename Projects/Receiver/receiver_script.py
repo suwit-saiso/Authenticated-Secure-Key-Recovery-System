@@ -200,12 +200,13 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         print("Payload size in bytes:", len(payload_bytes))
 
         # Send the encrypted request to the KRC
-        send_to_krc(payload_bytes)
+        connection = send_to_krc(payload_bytes,False,None)
 
         # Simulate receiving response from KRC
-        krc_response = receive_response_from_krc()
+        krc_response = receive_response_from_krc(connection)
+        print("first response:",krc_response)
         response = krc_response.get('response')
-
+        print("actual response:",response)
         if response != "Request accepted, please verify yourself":
             print("Request denied by KRC.")
             return "Request denied"
@@ -220,13 +221,17 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         }
         print("Verification payload prepared:", json.dumps(payload, indent=4))
         
+        payload_json = json.dumps(payload)
+        payload_bytes = payload_json.encode('utf-8')
+        print("Payload size in bytes:", len(payload_bytes))
         # Send verification data to KRC
-        send_to_krc(json.dumps(payload).encode("utf-8"))
+        connection2 = send_to_krc(payload_bytes,True,connection)
 
         # Receive the authentication response from KRC
-        krc_auth_response = receive_response_from_krc()
+        krc_auth_response = receive_response_from_krc(connection2)
+        print("auth resposne:",krc_auth_response)
         auth_response = krc_auth_response.get('response')
-        
+        print("actual auth response:",auth_response)
         if auth_response != "Authenticate successfully":
             print("Authentication failed.")
             return "Authentication failed"
@@ -234,7 +239,7 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         print("Authentication successful. Receiving session key parts.")
         
         # Receive the unfinished session key and Sr from KRC
-        key_parts = receive_from_krc()
+        key_parts = receive_from_krc(connection2)
 
         encrypted_unfinished_session_key = key_parts.get("encrypted_unfinished_session_key")
         if isinstance(encrypted_unfinished_session_key, str):
@@ -280,13 +285,18 @@ def cleanup_sessions():
         print(f"Session {session_id} expired and removed.")
 
 # Send encrypted data to KRC
-def send_to_krc(data):
+def send_to_krc(data,have_connection,s):
     try:
+        if have_connection and s:
+            s.sendall(len(data).to_bytes(4, byteorder="big") + data)
+            print("Data sent to KRC.")
+            return s
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(10)  # Set a 10-second timeout
         s.connect((KRC_HOST, KRC_PORT))
         s.sendall(len(data).to_bytes(4, byteorder="big") + data)
         print("Data sent to KRC.")
+        return s
     except socket.timeout:
         print("Timeout while sending data to KRC")
     except ConnectionRefusedError:
@@ -295,11 +305,11 @@ def send_to_krc(data):
         print(f"Error in send_to_krc: {e}")
 
 # Receive response from KRC 
-def receive_response_from_krc():
+def receive_response_from_krc(s):
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(30)  # Set a 30-second timeout
-        s.connect((KRC_HOST, KRC_PORT))
+        # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # s.settimeout(30)  # Set a 30-second timeout
+        # s.connect((KRC_HOST, KRC_PORT))
         response = s.recv(1024)
         print("Response received from KRC.")
         return json.loads(response.decode())
@@ -314,12 +324,12 @@ def receive_response_from_krc():
         return {"error": str(e)}
 
 # Receive session key from KRC 
-def receive_from_krc():
-    s = None
+def receive_from_krc(s):
+    # s = None
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(100)  # Set a 100-second timeout
-        s.connect((KRC_HOST, KRC_PORT))
+        # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # s.settimeout(100)  # Set a 100-second timeout
+        # s.connect((KRC_HOST, KRC_PORT))
         new_session_key = s.recv(1024)
         return json.loads(new_session_key.decode())
     except socket.timeout:
