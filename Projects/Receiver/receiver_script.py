@@ -170,9 +170,6 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         challenge_code, challenge_verifier = generate_pkce_challenge()
         timestamp = int(time.time())  # Add current timestamp
         
-        print("!!!IMPORTANT!!!")
-        print("Debug challenge code:", challenge_code)
-        print("Debug challenge verifier", challenge_verifier)
         # Prepare key recovery request to KRC
         recovery_request = {
             'challenge_verifier': challenge_verifier.hex(),  # Convert byte data to hex string
@@ -239,7 +236,7 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
             print("Authentication failed.")
             return "Authentication failed"
 
-        print("Authentication successful. Receiving session key parts.")
+        print("Authentication successful. Wait to receiving session key parts.")
         
         # Receive the unfinished session key and Sr from KRC
         key_parts = receive_from_krc(connection2)

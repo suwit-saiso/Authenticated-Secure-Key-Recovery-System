@@ -205,7 +205,6 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
         print(f"Unexpected error during KRF decryption and validation: {e}")
         raise
 
-
 # Verify the requester using PKCE-like challenge 
 def verify_requester(challenge_code, requester_challenge_verifier):
     hashed_challenge_code = hashlib.sha256(challenge_code).digest()
@@ -241,10 +240,6 @@ def client_validation(client_socket, requester_challenge_verifier):
         )
 
         print("Verifying requester with challenge code.")
-        print("!!!IMPORTANT!!!")
-        print("Debug challenge code:", decrypted_challenge)
-        print("Debug challenge verifier", requester_challenge_verifier)
-        print("Start verify now")
         verification = verify_requester(decrypted_challenge, requester_challenge_verifier)
         if verification != "Requester verified successfully.":
             print("Authorization failed.")
@@ -261,7 +256,7 @@ def client_validation(client_socket, requester_challenge_verifier):
 # Function to distribute KRF-i and perform PKCE-like challenge with KRAs
 def distribute_krf_to_kras(krf, kra_public_keys):
     print("Start distributing KRF-i.")
-    print(type(krf))
+    # KRF is a dict
     krf_i_list = [None] * len(kra_public_keys)  # Initialize list with None for tracking
     
     # Distribute KRF-i and perform PKCE-like challenge
@@ -283,7 +278,11 @@ def distribute_krf_to_kras(krf, kra_public_keys):
             "encrypted_challenge_code": encrypted_challenge_code.hex(),
             "type": "challenge"
             }
-            send_to_kra(i, payload_1)
+
+            payload_json = json.dumps(payload_1)
+            payload_bytes1 = payload_json.encode('utf-8')
+            print("Payload size in bytes:", len(payload_bytes1))
+            send_to_kra(i, payload_bytes1)
 
             # Wait for the challenge verifier from KRA-i
             kra_response = receive_from_kra(i)
@@ -318,7 +317,11 @@ def distribute_krf_to_kras(krf, kra_public_keys):
             "encrypted_krf_i": krf_i_encrypted,
             "type": "krf_retrieval"
             }
-            send_to_kra(i, payload_2)
+
+            payload_json = json.dumps(payload_2)
+            payload_bytes2 = payload_json.encode('utf-8')
+            print("Payload size in bytes:", len(payload_bytes2))
+            send_to_kra(i, payload_bytes2)
 
             # Wait for KRA to return the KRF-i decrypted and re-encrypted with KRC's public key
             encrypted_krf_i = receive_from_kra(i)
