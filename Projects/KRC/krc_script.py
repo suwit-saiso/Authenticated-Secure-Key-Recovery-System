@@ -108,6 +108,9 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
     request_session_id = request['session_id']
     request_timestamp = request['timestamp']
 
+    if isinstance(requester_challenge_verifier, str):
+            requester_challenge_verifier = bytes.fromhex(requester_challenge_verifier)
+
     print("Start decrypt AES key.")
     # decrypt the AES key with KRC's privat key
     decrypted_AES_key = krc_private_key.decrypt(
