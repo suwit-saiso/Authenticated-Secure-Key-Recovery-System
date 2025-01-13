@@ -83,7 +83,7 @@ services:
       app_network:
         ipv4_address: 192.168.1.13
 
-  kra1:
+  kra-1:
     image: kra:lasted
     container_name: kra1
     build:
@@ -104,7 +104,7 @@ services:
       app_network:
         ipv4_address: 192.168.1.14
 
-  kra2:
+  kra-2:
     image: kra:lasted
     container_name: kra2
     build:
@@ -125,7 +125,7 @@ services:
       app_network:
         ipv4_address: 192.168.1.15
 
-  kra3:
+  kra-3:
     image: kra:lasted
     container_name: kra3
     build:
@@ -146,7 +146,7 @@ services:
       app_network:
         ipv4_address: 192.168.1.16
 
-  kra4:
+  kra-4:
     image: kra:lasted
     container_name: kra4
     build:
@@ -167,7 +167,7 @@ services:
       app_network:
         ipv4_address: 192.168.1.17
 
-  kra5:
+  kra-5:
     image: kra:lasted
     container_name: kra5
     build:
