@@ -117,6 +117,9 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
     try:
         # Encrypt the plaintext message with the session key (AES)
         iv, encrypted_message = encrypt_plaintext(plaintext, session_key)
+        print("!!!!!!!!!!DEBUG!!!!!!!!!!!")
+        print("sessionkey:",session_key)
+        print("iv:",iv)
     except Exception as e:
         print("Error encrypting plaintext message:", e)
         raise

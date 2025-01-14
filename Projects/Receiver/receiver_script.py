@@ -267,7 +267,8 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         # Assemble the complete session key
         session_key = xor(unfinished_session_key, Sr)
         print("Session key assembly complete.")
-        
+        print("!!!!!!!!!DEBUG!!!!!!!!!!!")
+        print("new session key:",session_key)
         return session_key
 
     except KeyError as e:
@@ -279,7 +280,6 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
     except Exception as e:
         print(f"Unexpected error during session key recovery: {e}")
         return f"Error: {e}"
-
 
 # Session Cleanup
 def cleanup_sessions():
@@ -377,6 +377,9 @@ def receive_from_sender(session_id, iv, encrypted_message):
 
         session["session_key"] = recovered_key
         print("Start decrypting message using given recovered session key.")
+        print("!!!!!!!!!!DEBUG!!!!!!!!!!!")
+        print("recovered session key:",recovered_key)
+        print("iv:",iv)
         decrypted_message = decrypt_plaintext(encrypted_message, recovered_key, iv)
         print(f"Decrypted message: {decrypted_message}")
         print("session_key_used: from KRC")
