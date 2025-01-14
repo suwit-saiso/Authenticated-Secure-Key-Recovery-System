@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  genkeys:
+  generate-keys:
     image: generate-keys:lasted
-    container_name: generate_key
+    container_name: generate-keys
     build:
-      context: ./generate_key
+      context: ./Generate Keys
       dockerfile: Dockerfile.genkey
     volumes:
       - ./Shared/keys:/Shared/keys
@@ -34,7 +34,7 @@ services:
       context: .
       dockerfile: Sender/Dockerfile.sender
     depends_on:
-      genkeys:
+      generate-keys:
         condition: service_completed_successfully
     ports:
       - "5000:5000"
@@ -53,7 +53,7 @@ services:
       context: ./Receiver
       dockerfile: Dockerfile.receiver
     depends_on:
-      genkeys:
+      generate-keys:
         condition: service_completed_successfully
     ports:
       - "5001:5001"
@@ -72,7 +72,7 @@ services:
       context: .
       dockerfile: KRC/Dockerfile.KRC
     depends_on:
-      genkeys:
+      generate-keys:
         condition: service_completed_successfully
     ports:
       - "5002:5002"
@@ -90,7 +90,7 @@ services:
       context: ./KRA
       dockerfile: Dockerfile.KRA
     depends_on:
-      genkeys:
+      generate-keys:
         condition: service_completed_successfully
     environment:
       KRA_ID: kra1
@@ -111,7 +111,7 @@ services:
       context: ./KRA
       dockerfile: Dockerfile.KRA
     depends_on:
-      genkeys:
+      generate-keys:
         condition: service_completed_successfully
     environment:
       KRA_ID: kra2
@@ -132,7 +132,7 @@ services:
       context: ./KRA
       dockerfile: Dockerfile.KRA
     depends_on:
-      genkeys:
+      generate-keys:
         condition: service_completed_successfully
     environment:
       KRA_ID: kra3
@@ -153,7 +153,7 @@ services:
       context: ./KRA
       dockerfile: Dockerfile.KRA
     depends_on:
-      genkeys:
+      generate-keys:
         condition: service_completed_successfully
     environment:
       KRA_ID: kra4
@@ -174,7 +174,7 @@ services:
       context: ./KRA
       dockerfile: Dockerfile.KRA
     depends_on:
-      genkeys:
+      generate-keys:
         condition: service_completed_successfully
     environment:
       KRA_ID: kra5
