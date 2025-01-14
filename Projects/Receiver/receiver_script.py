@@ -335,7 +335,7 @@ def receive_from_krc(s):
         # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # s.settimeout(100)  # Set a 100-second timeout
         # s.connect((KRC_HOST, KRC_PORT))
-        new_session_key = s.recv(1024)
+        new_session_key = s.recv(2048)
         return json.loads(new_session_key.decode())
     except socket.timeout:
         print("Timeout while waiting for session key from KRC")
