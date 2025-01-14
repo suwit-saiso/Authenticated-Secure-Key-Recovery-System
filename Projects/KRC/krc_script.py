@@ -398,7 +398,7 @@ def send_to_kra(kra_index, encrypted_data):
     host = f"192.168.1.{13 + int(kra_index)}"
     port = 5002 + kra_index  # Each KRA gets a unique port starting from 5003.
     
-    print(f"Debug: Check KRA-{kra_index} sending address host:{host} port:{port}")
+    # print(f"Debug: Check KRA-{kra_index} sending address host:{host} port:{port}")
     try:
         # Create a socket connection
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
@@ -577,12 +577,14 @@ def receive_request(client_socket):
                 print("Beginning Phase 3.")
                 # Step 3: Assemble the session key from KRF-i parts
                 unfinished_session_key = collect_key_shares_and_assemble(krf_i_list)
+                print("DEBUG:unfinished session key, type:", type(unfinished_session_key))
 
                 print("beginning Phase 4.")
                 # Step 4: Encrypt the session key and send it back to the Receiver
                 encrypted_session_key = encrypt_session_key(unfinished_session_key)
                 print("Preparing unfinished session key.")
                 Sr = krf_data["Sr"] # This is a dictionary 
+                print("DEBUG:Sr, type:", type(Sr), krf.keys())
                 encrypted_Sr = bytes.fromhex(Sr["Sr"])  # Convert hex string to bytes
                 payload = {"encrypted_unfinished_session_key": encrypted_session_key.hex(),
                            "Sr":encrypted_Sr.hex()
