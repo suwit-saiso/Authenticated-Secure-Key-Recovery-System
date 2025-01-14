@@ -268,6 +268,7 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         session_key = xor(unfinished_session_key, Sr)
         print("Session key assembly complete.")
         print("!!!!!!!!!DEBUG!!!!!!!!!!!")
+        print("Sr:",Sr)
         print("new session key:",session_key)
         return session_key
 

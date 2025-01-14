@@ -205,6 +205,8 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
 
     try:
         # Encrypt Sr with the receiver's public key
+        print("!!!!!!!!!!!!DEBUG!!!!!!!!!!!")
+        print("Sr:",sr)
         encrypted_sr = receiver_public_key.encrypt(
             sr,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
