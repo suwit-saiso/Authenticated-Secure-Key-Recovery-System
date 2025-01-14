@@ -573,20 +573,18 @@ def receive_request(client_socket):
                 print("Beginning Phase 2.")
                 # Step 2: Distribute KRF-i to KRAs and collect encrypted KRF-i responses
                 krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
-                print("DEBUG:krf i list, type:", type(krf_i_list), krf_i_list)
 
                 print("Beginning Phase 3.")
                 # Step 3: Assemble the session key from KRF-i parts
                 unfinished_session_key = collect_key_shares_and_assemble(krf_i_list)
-                print("DEBUG:unfinished session key, type:", type(unfinished_session_key))
 
                 print("beginning Phase 4.")
                 # Step 4: Encrypt the session key and send it back to the Receiver
                 encrypted_session_key = encrypt_session_key(unfinished_session_key)
                 print("Preparing unfinished session key.")
                 print("DEBUG:KRF, type:", type(krf_data), krf_data.keys())
-                Sr = krf_data["Sr"] # This is a dictionary 
-                print("DEBUG:Sr, type:", type(Sr), Sr.keys())
+                Sr = krf_data["Sr"] 
+                print("DEBUG:Sr, type:", type(Sr))
                 encrypted_Sr = bytes.fromhex(Sr["Sr"])  # Convert hex string to bytes
                 payload = {"encrypted_unfinished_session_key": encrypted_session_key.hex(),
                            "Sr":encrypted_Sr.hex()
