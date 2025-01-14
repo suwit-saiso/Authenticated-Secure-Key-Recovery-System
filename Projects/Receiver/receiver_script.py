@@ -390,6 +390,8 @@ def receive_from_sender(session_id, iv, encrypted_message):
     decrypted_message = decrypt_plaintext(encrypted_message, session_key, iv)
     print(f"Decrypted message: {decrypted_message}")
     print("session_key_used: from sender")
+    print("!!!!!!!!!DEBUG!!!!!!!!")
+    print(f"session:{session_id},session key:{session_key} and iv:{iv} !!!")
     return {"decrypted_message": decrypted_message, "session_key_used": "from sender"}
 
 def handle_sender_connection(conn):
