@@ -85,7 +85,7 @@ services:
 
   kra-1:
     image: kra:lasted
-    container_name: kra1
+    container_name: kra-1
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
@@ -106,7 +106,7 @@ services:
 
   kra-2:
     image: kra:lasted
-    container_name: kra2
+    container_name: kra-2
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
@@ -127,7 +127,7 @@ services:
 
   kra-3:
     image: kra:lasted
-    container_name: kra3
+    container_name: kra-3
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
@@ -148,7 +148,7 @@ services:
 
   kra-4:
     image: kra:lasted
-    container_name: kra4
+    container_name: kra-4
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
@@ -169,7 +169,7 @@ services:
 
   kra-5:
     image: kra:lasted
-    container_name: kra5
+    container_name: kra-5
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
