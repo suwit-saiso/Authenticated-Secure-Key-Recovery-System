@@ -513,7 +513,7 @@ def handle_kra_failure(krf_i_list, krf):
         if isinstance(outer_encrypted_TTi, str):
             print("outer_encrypted_TTi is a string; attempting to parse JSON.")
             outer_encrypted_TTi = json.loads(outer_encrypted_TTi)
-            
+
         encrypted_TTi = bytes.fromhex(outer_encrypted_TTi["TTi"])  # Convert hex string to bytes
         TTi = krc_private_key.decrypt(
             encrypted_TTi,
@@ -539,14 +539,12 @@ def receive_request(client_socket):
         # Receive data
         length = int.from_bytes(client_socket.recv(4), byteorder="big")
         data = client_socket.recv(length)
-        # data = client_socket.recv(4096).decode("utf-8")  # Convert bytes to string
         if not data:
             print("No data received.")
             return
 
         # Parse JSON string into a Python dictionary
         data = json.loads(data.decode("utf-8"))
-        # data = json.loads(data)
         print("Loaded data from requester:")
         payload_json = json.dumps(data)
         payload_bytes = payload_json.encode('utf-8')
@@ -558,55 +556,63 @@ def receive_request(client_socket):
         encrypted_AES_key = bytes.fromhex(data['encrypted_AES_key'])
         iv_aes = bytes.fromhex(data['iv_aes'])
 
+        print("Beginning Phase 1.")
         # Step 1: Receive and decrypt the request
         krf, requester_challenge_verifier, request_session_id, request_timestamp = receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_key, iv_aes)
         krf_data = decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
 
-        if krf_data:
-            print('Sending first response to Requester')
-            request_validation = {'response':"Request accepted, please verify yourself"}
+        if not krf_data:
+            request_validation = {'response': "Request failed"}
+            print('Sending request failed response to Requester')
             client_socket.send(json.dumps(request_validation).encode('utf-8'))
+            return
 
-            # Step 1.5: Validate Requester
-            authorization = client_validation(client_socket, requester_challenge_verifier)
-            if authorization == "Authorization successfully.":
-                print('Sending second response to Requester')
-                requester_validation = {"response":"Authenticate successfully"}
-                client_socket.send(json.dumps(requester_validation).encode('utf-8'))
+        print('Sending first response to Requester')
+        request_validation = {'response': "Request accepted, please verify yourself"}
+        client_socket.send(json.dumps(request_validation).encode('utf-8'))
 
-                print("Beginning Phase 2.")
-                # Step 2: Distribute KRF-i to KRAs and collect encrypted KRF-i responses
-                krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
-
-                print("Beginning Phase 3.")
-                # Step 3: Assemble the session key from KRF-i parts
-                unfinished_session_key = collect_key_shares_and_assemble(krf_i_list)
-
-                print("beginning Phase 4.")
-                # Step 4: Encrypt the session key and send it back to the Receiver
-                encrypted_session_key = encrypt_session_key(unfinished_session_key)
-                print("Preparing unfinished session key.")
-                
-                Sr = krf_data["Sr"] 
-                # Parse if OtherInformation is a JSON string
-                if isinstance(Sr, str):
-                    print("Sr is a string; attempting to parse JSON.")
-                    Sr = json.loads(Sr)
-
-                encrypted_Sr = bytes.fromhex(Sr["Sr"])  # Convert hex string to bytes
-                payload = {"encrypted_unfinished_session_key": encrypted_session_key.hex(),
-                           "Sr":encrypted_Sr.hex()
-                           }
-                client_socket.send(json.dumps(payload).encode('utf-8'))
-                print("Keys sended.")
-
-            requester_validation = {"response":"Authenticate failed"}
+        print("Beginning Phase 2.")
+        # Step 2: Validate Requester
+        authorization = client_validation(client_socket, requester_challenge_verifier)
+        if authorization != "Authorization successfully.":
+            requester_validation = {"response": "Authenticate failed"}
             print('Sending authorization failed response to Requester')
-            client_socket.send(json.dumps(requester_validation).encode('utf-8')) 
+            client_socket.send(json.dumps(requester_validation).encode('utf-8'))
+            return
 
-        request_validation = {'response':"Request failed"} 
-        print('Sending request failed response to Requester')
-        client_socket.send(json.dumps(request_validation).encode('utf-8')) 
+        print('Sending second response to Requester')
+        requester_validation = {"response": "Authenticate successfully"}
+        client_socket.send(json.dumps(requester_validation).encode('utf-8'))
+
+        print("Beginning Phase 3.")
+        # Step 3: Distribute KRF-i to KRAs and collect encrypted KRF-i responses
+        krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
+
+        print("Beginning Phase 4.")
+        # Step 4: Assemble the session key from KRF-i parts
+        unfinished_session_key = collect_key_shares_and_assemble(krf_i_list)
+
+        print("Beginning Phase 5.")
+        # Step 5: Encrypt the session key and send it back to the Receiver
+        encrypted_session_key = encrypt_session_key(unfinished_session_key)
+        print("Preparing unfinished session key and Sr.")
+
+        Sr = krf_data["Sr"]
+        # Parse if Sr is a JSON string
+        if isinstance(Sr, str):
+            print("Sr is a string; attempting to parse JSON.")
+            Sr = json.loads(Sr)
+
+        encrypted_Sr = bytes.fromhex(Sr["Sr"])  # Convert hex string to bytes
+        payload = {
+            "encrypted_unfinished_session_key": encrypted_session_key.hex(),
+            "Sr": encrypted_Sr.hex(),
+        }
+        payload_json = json.dumps(payload)
+        payload_bytes = payload_json.encode('utf-8')
+        print("Key data size in bytes:", len(payload_bytes))
+        client_socket.send(payload_bytes)
+        print("Keys sent.")
 
     except Exception as e:
         error_response = {"status": "error", "message": str(e)}

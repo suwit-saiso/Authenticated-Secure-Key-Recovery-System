@@ -240,6 +240,11 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         
         # Receive the unfinished session key and Sr from KRC
         key_parts = receive_from_krc(connection2)
+        print("DEBUG!!!")
+        print("Keypart data", type(key_parts))
+        payload_json = json.dumps(key_parts)
+        payload_bytes = payload_json.encode('utf-8')
+        print("Key data size in bytes:", len(payload_bytes))
 
         encrypted_unfinished_session_key = key_parts.get("encrypted_unfinished_session_key")
         if isinstance(encrypted_unfinished_session_key, str):
