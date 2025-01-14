@@ -583,8 +583,9 @@ def receive_request(client_socket):
                 # Step 4: Encrypt the session key and send it back to the Receiver
                 encrypted_session_key = encrypt_session_key(unfinished_session_key)
                 print("Preparing unfinished session key.")
+                print("DEBUG:KRF, type:", type(krf_data), krf_data.keys())
                 Sr = krf_data["Sr"] # This is a dictionary 
-                print("DEBUG:Sr, type:", type(Sr), krf.keys())
+                print("DEBUG:Sr, type:", type(Sr), Sr.keys())
                 encrypted_Sr = bytes.fromhex(Sr["Sr"])  # Convert hex string to bytes
                 payload = {"encrypted_unfinished_session_key": encrypted_session_key.hex(),
                            "Sr":encrypted_Sr.hex()
