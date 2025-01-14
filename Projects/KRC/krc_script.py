@@ -401,11 +401,11 @@ def send_to_kra(kra_index, encrypted_data):
     print(f"Debug: Check KRA-{kra_index} sending address host:{host} port:{port}")
     try:
         # Create a socket connection
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(10)  # Set a 10-second timeout
-            sock.connect((host, port))  # Connect to the KRA server          
-            sock.sendall(encrypted_data)
-            print("send data to KRA.")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
+        sock.settimeout(10)  # Set a 10-second timeout
+        sock.connect((host, port))  # Connect to the KRA server          
+        sock.sendall(encrypted_data)
+        print(f"send data to KRA-{kra_index}.")
         return sock
     except socket.timeout:
         print("Timeout while sending data to KRC")
