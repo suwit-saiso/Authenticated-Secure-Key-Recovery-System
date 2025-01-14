@@ -510,6 +510,10 @@ def handle_kra_failure(krf_i_list, krf):
     for i in missing_indices:
         # Retrieve and decrypt the corresponding TT-i value
         outer_encrypted_TTi = krf[f"TT-{i + 1}"]  # i + 1 corresponds to KRA-1 to KRA-5
+        if isinstance(outer_encrypted_TTi, str):
+            print("outer_encrypted_TTi is a string; attempting to parse JSON.")
+            outer_encrypted_TTi = json.loads(outer_encrypted_TTi)
+            
         encrypted_TTi = bytes.fromhex(outer_encrypted_TTi["TTi"])  # Convert hex string to bytes
         TTi = krc_private_key.decrypt(
             encrypted_TTi,
@@ -582,9 +586,13 @@ def receive_request(client_socket):
                 # Step 4: Encrypt the session key and send it back to the Receiver
                 encrypted_session_key = encrypt_session_key(unfinished_session_key)
                 print("Preparing unfinished session key.")
-                print("DEBUG:KRF, type:", type(krf_data), krf_data.keys())
+                
                 Sr = krf_data["Sr"] 
-                print("DEBUG:Sr, type:", type(Sr))
+                # Parse if OtherInformation is a JSON string
+                if isinstance(Sr, str):
+                    print("Sr is a string; attempting to parse JSON.")
+                    Sr = json.loads(Sr)
+
                 encrypted_Sr = bytes.fromhex(Sr["Sr"])  # Convert hex string to bytes
                 payload = {"encrypted_unfinished_session_key": encrypted_session_key.hex(),
                            "Sr":encrypted_Sr.hex()
@@ -604,6 +612,7 @@ def receive_request(client_socket):
         error_response = {"status": "error", "message": str(e)}
         client_socket.send(json.dumps(error_response).encode('utf-8'))
     finally:
+        print("Closing connection after finishing recovery process.")
         client_socket.close()
 
 #========================= Main =========================
