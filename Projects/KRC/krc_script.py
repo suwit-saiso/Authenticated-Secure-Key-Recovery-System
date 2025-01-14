@@ -573,6 +573,7 @@ def receive_request(client_socket):
                 print("Beginning Phase 2.")
                 # Step 2: Distribute KRF-i to KRAs and collect encrypted KRF-i responses
                 krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
+                print("DEBUG:krf i list, type:", type(krf_i_list), krf_i_list)
 
                 print("Beginning Phase 3.")
                 # Step 3: Assemble the session key from KRF-i parts
