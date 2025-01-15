@@ -158,51 +158,48 @@ def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
 
 def test_assemble_krf(session_key, num_agents, si_values, sr, sgn, tti_values):
-    """
-    Test the reconstruction of the session key, intermediate XOR states, 
-    and TTi values for Si reconstruction.
-    """
     print("\n--- Testing KRF Assembly ---")
     print(f"Session Key (Original): {session_key.hex()}")
     print("Si Values and Sr:")
     for i, si in enumerate(si_values):
-        print(f"  S_{i+1}: {si.hex()}")
-    print(f"  Sr: {sr.hex()}")
+        print(f"  S_{i+1}: {si.hex()} (Length: {len(si)} bytes)")
+    print(f"  Sr: {sr.hex()} (Length: {len(sr)} bytes)")
 
     # Verify Sr calculation
     computed_sr = session_key
     for si in si_values:
         computed_sr = xor(computed_sr, si)
-    print(f"Computed Sr: {computed_sr.hex()}")
+    print(f"Computed Sr: {computed_sr.hex()} (Length: {len(computed_sr)} bytes)")
     print("Sr Match:", computed_sr == sr)
 
     # Verify full session key reconstruction
     reconstructed_key = sr
     for si in si_values:
         reconstructed_key = xor(reconstructed_key, si)
-    print(f"Reconstructed Session Key: {reconstructed_key.hex()}")
+    print(f"Reconstructed Session Key: {reconstructed_key.hex()} (Length: {len(reconstructed_key)} bytes)")
     print("Session Key Match:", session_key == reconstructed_key)
-
-    # Verify intermediate XOR
-    intermediate_xor = si_values[0]
-    for si in si_values[1:]:
-        intermediate_xor = xor(intermediate_xor, si)
-    print(f"Intermediate XOR of Si: {intermediate_xor.hex()}")
-    print("Intermediate XOR Match with Sr:", intermediate_xor == sr)
 
     # Test TTi values for Si reconstruction
     print("\n--- Testing TTi Values ---")
+    print(f"SGN: {sgn.hex()} (Length: {len(sgn)} bytes)")
     for i, (tti, si) in enumerate(zip(tti_values, si_values), start=1):
-        print(f"  Expected TTi_{i}: {tti.hex()}")
-        # Verify reconstructed Si from TTi and SGN
-        reconstructed_si = xor(tti, sgn)
-        print(f"  TTi_{i}: {tti.hex()}")
-        print(f"  Si_{i} (Reconstructed): {reconstructed_si.hex()}")
-        print(f"  Match for Si_{i}: {reconstructed_si == si}")
-        if reconstructed_si != si:
+        print(f"\n  Expected TTi_{i}: {tti.hex()} (Length: {len(tti)} bytes)")
+        print(f"  TTi_{i}: {tti.hex()} (Length: {len(tti)} bytes)")
+        print(f"  Expected Si_{i}: {si.hex()} (Length: {len(si)} bytes)")
+
+        reconstructed_si = xor(tti, sgn)  # Reconstruct Si
+        print(f"  Si_{i} (Reconstructed): {reconstructed_si.hex()} (Length: {len(reconstructed_si)} bytes)")
+        si_match = reconstructed_si == si
+        print(f"  Match for Si_{i}: {si_match}")
+
+        if not si_match:
             print(f"  [ERROR] Si_{i} mismatch: Expected {si.hex()}, got {reconstructed_si.hex()}")
 
-    print("Testing complete.\n")
+        # Length validation
+        if len(tti) != len(sgn):
+            print(f"  [ERROR] Length mismatch for TTi_{i}: TTi length is {len(tti)} bytes, SGN length is {len(sgn)} bytes")
+        if len(si) != len(sgn):
+            print(f"  [ERROR] Length mismatch for Si_{i}: Si length is {len(si)} bytes, SGN length is {len(sgn)} bytes")
 
 # Generate KRF
 def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id):
@@ -219,7 +216,7 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
         sr = xor(sr, si)  # Compute Sr such that XOR(Si, ..., Sr) = session_key
 
     # Generate Ri for SGN calculation
-    ri_values = [os.urandom(16) for _ in range(num_kras + 1)]  # Include receiver
+    ri_values = [os.urandom(32) for _ in range(num_kras + 1)]  # Include receiver
     sgn = ri_values[0]
     for ri in ri_values[1:]:
         sgn = xor(sgn, ri)  # SGN = R1 XOR R2 XOR ... Rn
