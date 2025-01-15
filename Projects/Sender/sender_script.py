@@ -188,7 +188,7 @@ def test_assemble_krf(session_key, num_agents, si_values, sr,sgn):
         intermediate_xor = xor(intermediate_xor, si)
     print(f"Intermediate XOR of Si: {intermediate_xor.hex()}")
     print("Intermediate XOR Match with Sr:", intermediate_xor == sr)
-    print("SGN:",sgn)
+    print("SGN:",sgn.hex())
 
 # Generate KRF
 def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id):
