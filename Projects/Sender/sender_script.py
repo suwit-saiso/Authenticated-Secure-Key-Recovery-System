@@ -157,6 +157,33 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
 def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
 
+def test_assemble_krf(session_key, num_agents, si_values, sr):
+    """
+    Test the reconstruction of the session key and intermediate XOR states.
+    
+    :param session_key: The original session key used for testing.
+    :param num_agents: The total number of agents (Si parts + Sr).
+    :param si_values: List of Si values generated in the function.
+    :param sr: The Sr value.
+    """
+    print("\n--- Testing KRF Assembly ---")
+    # Reconstruct the session key from Si and Sr
+    reconstructed_key = sr
+    for si in si_values:
+        reconstructed_key = xor(reconstructed_key, si)
+    
+    print("Original Session Key:", session_key.hex())
+    print("Reconstructed Session Key:", reconstructed_key.hex())
+    print("Session Key Match:", session_key == reconstructed_key)
+    print("Sr:",sr)
+    # Intermediate XOR state (only Si parts)
+    intermediate_xor = si_values[0]
+    for si in si_values[1:]:
+        intermediate_xor = xor(intermediate_xor, si)
+    
+    print("Intermediate XOR of Si values:", intermediate_xor.hex())
+    print("Intermediate XOR Match with Sr:", intermediate_xor == sr)
+
 # Generate KRF
 def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id):
     print("Generating KRF...")
@@ -230,6 +257,8 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
     print("Length of encrypted_session_info:", len(encrypted_info))
     print("Encrypted session info (bytes):", encrypted_info[:16])  # Display a portion for inspection    
     print(f"Generated KRF: {len(krf)} components created successfully.")  # Log only metadata  
+    # DEBUG
+    test_assemble_krf(session_key, num_agents, si_values, sr)
     return krf
 
 # Send data to Receiver
