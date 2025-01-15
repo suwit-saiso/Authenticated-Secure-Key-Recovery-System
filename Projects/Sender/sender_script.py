@@ -192,31 +192,35 @@ def test_assemble_krf(session_key, num_agents, si_values, sr):
 # Generate KRF
 def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id):
     print("Generating KRF...")
-    print("DEBUG:session key:",session_key, type(session_key))
+    print("DEBUG: Session Key:", session_key.hex())
     krf = {}
-    num_agents = len(kra_public_keys)
-    timestamp = int(time.time())  # Add current timestamp
-    
-    # Split the session key into Si and Sr
-    si_values = [os.urandom(32) for _ in range(num_agents - 1)]  # Generate all but the last Si
-    remaining_key = session_key
+    num_kras = len(kra_public_keys)  # Number of KRAs (should be 5)
+    timestamp = int(time.time())  # Current timestamp
+
+    # Generate Si values for KRAs
+    si_values = [os.urandom(32) for _ in range(num_kras)]
+    sr = session_key  # Start with the session key
     for si in si_values:
-        remaining_key = xor(remaining_key, si)  # Use the XOR function
-    sr = remaining_key  # The last part Sr ensures the XOR reconstructs the session key
+        sr = xor(sr, si)  # Compute Sr such that XOR(Si, ..., Sr) = session_key
+
+    print("Si Values and Sr:")
+    for i, si in enumerate(si_values, start=1):
+        print(f"  S_{i}: {si.hex()}")
+    print(f"  Sr: {sr.hex()}")
 
     # Generate Ri for SGN calculation
-    ri_values = [os.urandom(16) for _ in range(num_agents)]  # Ri for SGN calculation
+    ri_values = [os.urandom(16) for _ in range(num_kras + 1)]  # Include receiver
     sgn = ri_values[0]
     for ri in ri_values[1:]:
         sgn = xor(sgn, ri)  # SGN = R1 XOR R2 XOR ... Rn
 
-    # Construct KRF-i and TT-i
-    for i, (kra_key, si) in enumerate(zip(kra_public_keys, si_values + [sr]), start=1):
+    # Construct KRF-i and TT-i for each KRA
+    for i, (kra_key, si) in enumerate(zip(kra_public_keys, si_values), start=1):
         tti = xor(si, sgn)  # TTi = Si XOR SGN
         krf_i = {'Si': si.hex(), 'SGN': sgn.hex()}
 
         try:
-            # Encrypt KRF-i with the agent's public key
+            # Encrypt KRF-i with the KRA's public key
             krf[f"KRF-{i}"] = kra_key.encrypt(
                 json.dumps(krf_i).encode(),
                 padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
@@ -236,10 +240,8 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
             print(f"Error encrypting TT-{i}:", e)
             raise
 
+    # Encrypt Sr for the receiver
     try:
-        # Encrypt Sr with the receiver's public key
-        print("!!!!!!!!!!!!DEBUG!!!!!!!!!!!")
-        print("Sr:",sr)
         encrypted_sr = receiver_public_key.encrypt(
             sr,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
@@ -249,8 +251,8 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
         print("Error encrypting Sr:", e)
         raise
 
+    # Add session information
     try:
-        # Add other session information, including session_id and timestamp
         other_information = {"session_id": session_id, "timestamp": timestamp}
         encrypted_info = krc_public_key.encrypt(
             json.dumps(other_information).encode(),
@@ -260,11 +262,10 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
     except Exception as e:
         print("Error encrypting session_info:", e)
         raise
-    print("Length of encrypted_session_info:", len(encrypted_info))
-    print("Encrypted session info (bytes):", encrypted_info[:16])  # Display a portion for inspection    
-    print(f"Generated KRF: {len(krf)} components created successfully.")  # Log only metadata  
-    # DEBUG
-    test_assemble_krf(session_key, num_agents, si_values, sr)
+
+    print(f"Generated KRF: {len(krf)} components created successfully.")
+    # DEBUG: Test reconstruction
+    test_assemble_krf(session_key, num_kras, si_values, sr)
     return krf
 
 # Send data to Receiver
