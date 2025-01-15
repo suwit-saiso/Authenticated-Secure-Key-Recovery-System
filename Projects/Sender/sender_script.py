@@ -157,9 +157,9 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
 def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
 
-def test_assemble_krf(session_key, num_agents, si_values, sr,sgn):
+def test_assemble_krf(session_key, num_agents, si_values, sr, sgn):
     """
-    Test the reconstruction of the session key and intermediate XOR states.
+    Test the reconstruction of the session key, intermediate XOR states, and TTi values.
     """
     print("\n--- Testing KRF Assembly ---")
     print(f"Session Key (Original): {session_key.hex()}")
@@ -167,6 +167,7 @@ def test_assemble_krf(session_key, num_agents, si_values, sr,sgn):
     for i, si in enumerate(si_values):
         print(f"  S_{i+1}: {si.hex()}")
     print(f"  Sr: {sr.hex()}")
+    print(f"SGN: {sgn.hex()}")
 
     # Verify Sr calculation
     computed_sr = session_key
@@ -188,7 +189,18 @@ def test_assemble_krf(session_key, num_agents, si_values, sr,sgn):
         intermediate_xor = xor(intermediate_xor, si)
     print(f"Intermediate XOR of Si: {intermediate_xor.hex()}")
     print("Intermediate XOR Match with Sr:", intermediate_xor == sr)
-    print("SGN:",sgn.hex())
+
+    # Verify TTi values for each Si
+    print("\n--- Testing TTi Values ---")
+    for i, si in enumerate(si_values, start=1):
+        tti = xor(si, sgn)  # Calculate TTi as Si XOR SGN
+        calculated_si = xor(tti, sgn)  # Verify Si = TTi XOR SGN
+        print(f"  TTi_{i}: {tti.hex()}")
+        print(f"  Si_{i} (Reconstructed): {calculated_si.hex()}")
+        print(f"  Match for Si_{i}: {calculated_si == si}")
+
+    print("\nKRF Assembly Testing Complete.")
+
 
 # Generate KRF
 def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id):
