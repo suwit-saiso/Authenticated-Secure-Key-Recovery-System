@@ -558,7 +558,7 @@ def handle_kra_failure(krf_i_list, krf):
 
             # Recreate KRF-i as a dictionary with hex strings
             recreated_krf_i = {"Si": Si.hex(), "SGN": most_common_sgn.hex()}
-            print(f"Recreated KRF-{i + 1}: {recreated_krf_i}")
+            print(f"Recreated KRF-{i + 1}")
 
             # Save the recreated KRF-i in the list
             krf_i_list[i] = recreated_krf_i
