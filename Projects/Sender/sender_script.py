@@ -160,33 +160,39 @@ def xor(bytes1, bytes2):
 def test_assemble_krf(session_key, num_agents, si_values, sr):
     """
     Test the reconstruction of the session key and intermediate XOR states.
-    
-    :param session_key: The original session key used for testing.
-    :param num_agents: The total number of agents (Si parts + Sr).
-    :param si_values: List of Si values generated in the function.
-    :param sr: The Sr value.
     """
     print("\n--- Testing KRF Assembly ---")
-    # Reconstruct the session key from Si and Sr
+    print(f"Session Key (Original): {session_key.hex()}")
+    print("Si Values and Sr:")
+    for i, si in enumerate(si_values):
+        print(f"  S_{i+1}: {si.hex()}")
+    print(f"  Sr: {sr.hex()}")
+
+    # Verify Sr calculation
+    computed_sr = session_key
+    for si in si_values:
+        computed_sr = xor(computed_sr, si)
+    print(f"Computed Sr: {computed_sr.hex()}")
+    print("Sr Match:", computed_sr == sr)
+
+    # Verify full session key reconstruction
     reconstructed_key = sr
     for si in si_values:
         reconstructed_key = xor(reconstructed_key, si)
-    
-    print("Original Session Key:", session_key.hex())
-    print("Reconstructed Session Key:", reconstructed_key.hex())
+    print(f"Reconstructed Session Key: {reconstructed_key.hex()}")
     print("Session Key Match:", session_key == reconstructed_key)
-    print("Sr:",sr)
-    # Intermediate XOR state (only Si parts)
+
+    # Verify intermediate XOR
     intermediate_xor = si_values[0]
     for si in si_values[1:]:
         intermediate_xor = xor(intermediate_xor, si)
-    
-    print("Intermediate XOR of Si values:", intermediate_xor.hex())
+    print(f"Intermediate XOR of Si: {intermediate_xor.hex()}")
     print("Intermediate XOR Match with Sr:", intermediate_xor == sr)
 
 # Generate KRF
 def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id):
     print("Generating KRF...")
+    print("DEBUG:session key:",session_key, type(session_key))
     krf = {}
     num_agents = len(kra_public_keys)
     timestamp = int(time.time())  # Add current timestamp
