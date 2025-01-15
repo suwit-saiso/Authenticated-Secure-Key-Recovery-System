@@ -34,13 +34,6 @@ kra_public_key_paths = [
     os.path.join(shared_keys_dir, f"kra{i}_public.pem") for i in range(1, 6)
 ]
 
-# # Debug print to confirm paths
-# print("Sender Private Key Path:", sender_private_key_path)
-# print("Sender Public Key Path:", sender_public_key_path)
-# print("Receiver Public Key Path:", receiver_public_key_path)
-# print("KRC Public Key Path:", krc_public_key_path)
-# print("KRA Public Key Paths:", kra_public_key_paths)
-
 # Load keys with error checking
 try:
     sender_private_key = load_private_key(sender_private_key_path)
@@ -63,10 +56,12 @@ def generate_session_key():
 
 # Encrypt message with session key
 def encrypt_plaintext(plaintext, session_key):
+    print("Start encrypting plaintext.")
     iv = os.urandom(16)
     cipher = Cipher(algorithms.AES(session_key), modes.CFB(iv))
     encryptor = cipher.encryptor()
     encrypted_message = encryptor.update(plaintext.encode()) + encryptor.finalize()
+    print("Encrypted plaintext successfully.")
     return iv, encrypted_message
 
 def aes_encrypt(data, key, iv):
@@ -81,11 +76,13 @@ def aes_encrypt(data, key, iv):
     Returns:
         bytes: The encrypted data.
     """
+    print("Start encrypting KRF with AES.")
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
     encryptor = cipher.encryptor()
     # Ensure data is padded to a multiple of block size (16 bytes for AES)
     pad_len = 16 - (len(data) % 16)
     padded_data = data + bytes([pad_len] * pad_len)
+    print("Encrypted KRF successfully.")
     return encryptor.update(padded_data) + encryptor.finalize()
 
 # Encrypt session key and message for first establishment
@@ -117,9 +114,6 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
     try:
         # Encrypt the plaintext message with the session key (AES)
         iv, encrypted_message = encrypt_plaintext(plaintext, session_key)
-        print("!!!!!!!!!!DEBUG!!!!!!!!!!!")
-        print("session key original:",session_key)
-        print("iv:",iv)
     except Exception as e:
         print("Error encrypting plaintext message:", e)
         raise
@@ -204,7 +198,6 @@ def test_assemble_krf(session_key, num_agents, si_values, sr, sgn, tti_values):
 # Generate KRF
 def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id):
     print("Generating KRF...")
-    print("DEBUG: Session Key:", session_key.hex())
     krf = {}
     num_kras = len(kra_public_keys)  # Number of KRAs (should be 5)
     timestamp = int(time.time())  # Current timestamp
@@ -276,7 +269,7 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
 
     print(f"Generated KRF: {len(krf)} components created successfully.")
     # DEBUG: Test reconstruction
-    test_assemble_krf(session_key, num_kras, si_values, sr, sgn, tti_values)
+    # test_assemble_krf(session_key, num_kras, si_values, sr, sgn, tti_values)
     return krf
 
 # Send data to Receiver
@@ -302,30 +295,6 @@ def send_to_receiver(data):
     except Exception as e:
         print(f"Socket error: {e}")
         return f"Error: {e}".encode()
-
-#========================= Test Payload ===========================
-# def save_payload_to_file(payload, filename="payload.json"):
-#     """
-#     Save the given payload to a file in JSON format.
-
-#     Args:
-#         payload (dict): The payload to save.
-#         filename (str): The name of the file to save the payload to. Defaults to "payload.json".
-#     """
-#     try:
-#         # Ensure all bytes are converted to a JSON-serializable format
-#         serialized_payload = {
-#             key: (value.hex() if isinstance(value, bytes) else value)
-#             for key, value in payload.items()
-#         }
-
-#         # Write serialized payload to a file
-#         with open(filename, "w") as file:
-#             json.dump(serialized_payload, file, indent=4)
-#         print(f"Payload saved to {filename}")
-#     except Exception as e:
-#         print(f"Error saving payload to file: {e}")
-#         raise
 
 #========================= Session Manager =========================
 current_session = {
@@ -364,7 +333,6 @@ def handle_message():
             "encrypted_AES_key": encrypted_aes_key.hex(),
             "iv_aes": iv_aes.hex()
         }
-        # print("Payload:", json.dumps(payload, indent=4))
     else:
         print("i'm now here at stage2")
         # Use existing session
@@ -377,10 +345,6 @@ def handle_message():
             "iv": iv.hex(),
             "encrypted_message": encrypted_message.hex()
         }
-        # print("Payload:", json.dumps(payload, indent=4))
-
-    # disable after TEST PHASE!!!
-    # save_payload_to_file(payload)
 
     # Send payload to Receiver
     datas = json.dumps(payload).encode("utf-8")

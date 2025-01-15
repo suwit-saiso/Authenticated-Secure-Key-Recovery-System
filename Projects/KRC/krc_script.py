@@ -1,13 +1,13 @@
 import socket
 import json
-import struct
+# import struct
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 import hashlib
-import time
+# import time
 
 #========================= Setup =========================
 # Load keys
@@ -64,9 +64,6 @@ def generate_pkce_challenge():
 def decrypt_data(data, AES_key, iv):
     try:
         print("Starting KRF decryption...")
-        print(f"Encrypted KRF length: {len(data)} bytes")
-        print(f"IV length: {len(iv)} bytes")
-
         # Ensure IV is in bytes
         if isinstance(iv, str):
             print("IV provided as a hex string; converting to bytes.")
@@ -146,7 +143,6 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
 
             # Parse if OtherInformation is a JSON string
             if isinstance(encrypted_other_info, str):
-                print("OtherInformation is a string; attempting to parse JSON.")
                 encrypted_other_info = json.loads(encrypted_other_info)
 
             if "Info" not in encrypted_other_info:
@@ -161,8 +157,6 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
         # Step 3: Validate 'Info' hex string
         try:
             hex_string = encrypted_other_info["Info"]
-            print("Hex string length:", len(hex_string))
-            print("Hex string content (first 100 chars):", hex_string[:100])  # Preview the string
             encrypted_session_info = bytes.fromhex(hex_string)
             print("Hex to bytes conversion successful!")
         except ValueError as e:
@@ -218,20 +212,14 @@ def client_validation(client_socket, requester_challenge_verifier):
         # Receive data
         length = int.from_bytes(client_socket.recv(4), byteorder="big")
         data = client_socket.recv(length)
-        # data = client_socket.recv(4096).decode()  # Convert bytes to string
         if not data:
             print("No data received while requester validation.")
             return
 
         # Parse JSON string into a Python dictionary
-        # data = json.loads(data)
         data = json.loads(data.decode("utf-8"))
-        print("Loaded data from requester for validation:")
-        payload_json = json.dumps(data)
-        payload_bytes = payload_json.encode('utf-8')
-        print("Data size in bytes:", len(payload_bytes))
         
-        print('Receiving data from Requester after validated request')
+        print('Receiving data from Requester.Try to validat request')
         encrypted_challenge = bytes.fromhex(data['encrypted_challenge_code'])
         # decrypt the challenge code with KRC's privat key
         decrypted_challenge = krc_private_key.decrypt(
@@ -361,28 +349,68 @@ def distribute_krf_to_kras(krf, kra_public_keys):
     return krf_i_list
 
 # Collect key shares from KRAs and assemble session key
-def collect_key_shares_and_assemble(krf_i_list):
-    key_shares = []
-    print("Beginning key assemble.")
-    # Extract and convert all Si values from the KRF-i list
-    for krf_i in krf_i_list:
-        if krf_i is None:
-            raise ValueError("KRF-i list contains None values. Ensure all key shares are available.")
-        
-        # Extract Si as bytes
-        Si = bytes.fromhex(krf_i["Si"])
-        key_shares.append(Si)
+def collect_key_shares_and_assemble(krf_i_list, expected_si_length=32):
+    """
+    Assembles the session key from the KRF-i list by XOR-ing all Si values.
+    If any part is missing or invalid, the function returns None.
     
-    # Assemble session key using XOR of all key shares
-    unfinished_session_key = key_shares[0]
-    for share in key_shares[1:]:
-        unfinished_session_key = xor(unfinished_session_key, share)
+    Args:
+        krf_i_list (list): List of KRF-i dictionaries or None values.
+        expected_si_length (int): Expected byte length of each Si value.
+    
+    Returns:
+        bytes | None: The fully assembled session key, or None if assembly fails.
+    """
+    key_shares = []
+    error_occurred = False  # Track if any issues occur during processing
 
-    print("Returning assembled key.")
-    return unfinished_session_key
+    print("Beginning key assembly.")
+
+    # Extract and validate Si values
+    for i, krf_i in enumerate(krf_i_list):
+        if krf_i is None:
+            print(f"[ERROR] KRF-{i + 1} is missing. Cannot assemble session key.")
+            error_occurred = True
+            continue
+
+        try:
+            # Extract Si as bytes
+            Si = bytes.fromhex(krf_i["Si"])
+            if len(Si) != expected_si_length:
+                raise ValueError(f"Invalid length for KRF-{i + 1}. Expected {expected_si_length} bytes, got {len(Si)} bytes.")
+            key_shares.append(Si)
+        except (KeyError, ValueError) as e:
+            print(f"[ERROR] KRF-{i + 1} processing failed: {e}")
+            error_occurred = True
+
+    # If any errors occurred, return None
+    if error_occurred or len(key_shares) < len(krf_i_list):
+        print("[ERROR] Session key assembly failed due to missing or invalid KRF-i parts.")
+        return None
+
+    # Assemble session key using XOR
+    assembled_session_key = key_shares[0]
+    for share in key_shares[1:]:
+        assembled_session_key = xor(assembled_session_key, share)
+
+    print("Session key successfully assembled.")
+    return assembled_session_key
 
 # Encrypt the session key for the receiver and return it
 def encrypt_session_key(session_key):
+    """
+    Encrypts the session key using the receiver's public key.
+
+    Args:
+        session_key (bytes): The session key to encrypt.
+
+    Returns:
+        bytes or None: The encrypted session key, or None if the input is invalid.
+    """
+    if session_key is None:
+        print("Error: Session key cannot be None.")
+        return None
+    
     encrypted_session_key = receiver_public_key.encrypt(
         session_key,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
@@ -398,7 +426,6 @@ def send_to_kra(kra_index, encrypted_data):
     host = f"192.168.1.{13 + int(kra_index)}"
     port = 5002 + kra_index  # Each KRA gets a unique port starting from 5003.
     
-    # print(f"Debug: Check KRA-{kra_index} sending address host:{host} port:{port}")
     try:
         # Create a socket connection
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
@@ -416,17 +443,7 @@ def receive_from_kra(kra_index,sock):
     """
     Receive data from a KRA using a socket connection.
     """
-    # host = "192.168.1.14"
-    # port = 5002 + kra_index  # Each KRA gets a unique port starting from 5003.
-    
     try:
-        # # Create a socket connection
-        # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        #     sock.settimeout(10)  # Set a 10-second timeout
-        #     sock.connect((host, port))  # Connect to the KRA server
-        #     response = sock.recv(4096)
-        #     print("KRA data received.")
-        #     return json.loads(response.decode())
         response = sock.recv(1024)
         print(f"Response received from KRA-{kra_index}.")
         return json.loads(response.decode())
@@ -488,15 +505,28 @@ def handle_failed_kra(kra_index, payload, challenge_verifier):
 # Function to handle failure in the overall KRA key shares collection
 def handle_kra_failure(krf_i_list, krf):
     print("Handling overall KRA failure for missing KRF-i parts.")
-    
+
     # Step 1: Extract and validate SGN values
     sgn_values = [bytes.fromhex(krf_i["SGN"]) for krf_i in krf_i_list if krf_i is not None]
-    if not sgn_values:
-        raise ValueError("No valid SGN found in KRF-i list.")
-    if len(set(sgn_values)) != 1:
-        raise ValueError("Inconsistent SGN values found in KRF-i list.")
-    SGN = sgn_values[0]
-    print(f"Consistent SGN identified as: {SGN.hex()}")
+
+    if not sgn_values:  # Case 1: All KRF-i are missing
+        print("[WARNING] All KRF-i parts are missing. Reconstruction is not possible.")
+        return krf_i_list  # Leave list as it is (with None values)
+
+    # Count occurrences of each SGN
+    sgn_counts = {}
+    for sgn in sgn_values:
+        sgn_counts[sgn] = sgn_counts.get(sgn, 0) + 1
+
+    # Identify the most common SGN
+    most_common_sgn = max(sgn_counts, key=sgn_counts.get)
+    print(f"Most common SGN identified: {most_common_sgn.hex()} (count: {sgn_counts[most_common_sgn]})")
+
+    # Filter out mismatched KRF-i parts
+    for i, krf_i in enumerate(krf_i_list):
+        if krf_i and bytes.fromhex(krf_i["SGN"]) != most_common_sgn:
+            print(f"[WARNING] Mismatched SGN in KRF-{i + 1}. Marking as missing.")
+            krf_i_list[i] = None  # Mark mismatched KRF-i as missing
 
     # Step 2: Identify missing KRF-i parts
     missing_indices = [i for i, krf_i in enumerate(krf_i_list) if krf_i is None]
@@ -504,33 +534,36 @@ def handle_kra_failure(krf_i_list, krf):
 
     # Step 3: Recreate missing KRF-i parts
     for i in missing_indices:
-        # Retrieve and decrypt the corresponding TT-i value
-        outer_encrypted_TTi = krf[f"TT-{i + 1}"]  # i + 1 corresponds to KRA-1 to KRA-5
-        if isinstance(outer_encrypted_TTi, str):
-            print("Parsing outer_encrypted_TTi JSON.")
-            outer_encrypted_TTi = json.loads(outer_encrypted_TTi)
+        try:
+            # Retrieve and decrypt the corresponding TT-i value
+            outer_encrypted_TTi = krf[f"TT-{i + 1}"]  # i + 1 corresponds to KRA-1 to KRA-5
+            if isinstance(outer_encrypted_TTi, str):
+                print("Parsing outer_encrypted_TTi JSON.")
+                outer_encrypted_TTi = json.loads(outer_encrypted_TTi)
 
-        encrypted_TTi = bytes.fromhex(outer_encrypted_TTi["TTi"])  # Convert hex string to bytes
-        TTi = krc_private_key.decrypt(
-            encrypted_TTi,
-            padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-        )
+            encrypted_TTi = bytes.fromhex(outer_encrypted_TTi["TTi"])  # Convert hex string to bytes
+            TTi = krc_private_key.decrypt(
+                encrypted_TTi,
+                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+            )
 
-        # Debug: Verify decrypted TT-i
-        print(f"Decrypted TT-{i + 1}: {TTi.hex()}")
+            # Debug: Verify decrypted TT-i
+            print(f"Decrypted TT-{i + 1}: {TTi.hex()}")
 
-        # Calculate Si using XOR
-        Si = xor(SGN, TTi)  # S_i = TTi XOR SGN
+            # Calculate Si using XOR
+            Si = xor(most_common_sgn, TTi)  # S_i = TTi XOR SGN
 
-        # Debug: Verify reconstructed Si
-        print(f"Reconstructed S_{i + 1}: {Si.hex()}")
+            # Debug: Verify reconstructed Si
+            print(f"Reconstructed S_{i + 1}: {Si.hex()}")
 
-        # Recreate KRF-i as a dictionary with hex strings
-        recreated_krf_i = {"Si": Si.hex(), "SGN": SGN.hex()}
-        print(f"Recreated KRF-{i + 1}: {recreated_krf_i}")
+            # Recreate KRF-i as a dictionary with hex strings
+            recreated_krf_i = {"Si": Si.hex(), "SGN": most_common_sgn.hex()}
+            print(f"Recreated KRF-{i + 1}: {recreated_krf_i}")
 
-        # Save the recreated KRF-i in the list
-        krf_i_list[i] = recreated_krf_i
+            # Save the recreated KRF-i in the list
+            krf_i_list[i] = recreated_krf_i
+        except Exception as e:
+            print(f"[ERROR] Failed to reconstruct KRF-{i + 1}: {e}")
 
     # Step 4: Return the updated KRF-i list
     print("KRF-i list successfully completed.")
@@ -538,87 +571,78 @@ def handle_kra_failure(krf_i_list, krf):
 
 def receive_request(client_socket):
     try:
-        # Receive data
+        # Phase 1: Receive data
+        print("Receiving data...")
         length = int.from_bytes(client_socket.recv(4), byteorder="big")
         data = client_socket.recv(length)
         if not data:
-            print("No data received.")
-            return
-
-        # Parse JSON string into a Python dictionary
+            raise ValueError("No data received from client.")
+        
+        # Parse the received data
         data = json.loads(data.decode("utf-8"))
-        print("Loaded data from requester:")
-        payload_json = json.dumps(data)
-        payload_bytes = payload_json.encode('utf-8')
-        print("Data size in bytes:", len(payload_bytes))
+        print("Loaded data from requester.")
+        
+        encrypted_request = bytes.fromhex(data.get("encrypted_request", ""))
+        encrypted_krf = bytes.fromhex(data.get("encrypted_krf", ""))
+        encrypted_AES_key = bytes.fromhex(data.get("encrypted_AES_key", ""))
+        iv_aes = bytes.fromhex(data.get("iv_aes", ""))
 
-        print('Receiving data from Requester')
-        encrypted_request = bytes.fromhex(data['encrypted_request'])
-        encrypted_krf = bytes.fromhex(data['encrypted_krf'])
-        encrypted_AES_key = bytes.fromhex(data['encrypted_AES_key'])
-        iv_aes = bytes.fromhex(data['iv_aes'])
-
-        print("Beginning Phase 1.")
-        # Step 1: Receive and decrypt the request
-        krf, requester_challenge_verifier, request_session_id, request_timestamp = receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_key, iv_aes)
+        print("Beginning Phase 1: Processing request.")
+        krf, requester_challenge_verifier, request_session_id, request_timestamp = receive_and_decrypt_request(
+            encrypted_request, encrypted_krf, encrypted_AES_key, iv_aes
+        )
         krf_data = decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
 
         if not krf_data:
-            request_validation = {'response': "Request failed"}
-            print('Sending request failed response to Requester')
-            client_socket.send(json.dumps(request_validation).encode('utf-8'))
-            return
+            raise ValueError("Invalid KRF data: Request validation failed.")
 
-        print('Sending first response to Requester')
         request_validation = {'response': "Request accepted, please verify yourself"}
         client_socket.send(json.dumps(request_validation).encode('utf-8'))
 
-        print("Beginning Phase 2.")
-        # Step 2: Validate Requester
+        # Phase 2: Validate Requester
+        print("Beginning Phase 2: Validating requester.")
         authorization = client_validation(client_socket, requester_challenge_verifier)
         if authorization != "Authorization successfully.":
-            requester_validation = {"response": "Authenticate failed"}
-            print('Sending authorization failed response to Requester')
-            client_socket.send(json.dumps(requester_validation).encode('utf-8'))
-            return
+            raise ValueError("Requester validation failed: Authentication error.")
 
-        print('Sending second response to Requester')
         requester_validation = {"response": "Authenticate successfully"}
         client_socket.send(json.dumps(requester_validation).encode('utf-8'))
 
-        print("Beginning Phase 3.")
-        # Step 3: Distribute KRF-i to KRAs and collect encrypted KRF-i responses
+        # Phase 3: Distribute KRF-i
+        print("Beginning Phase 3: Distributing KRF-i.")
         krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
 
-        print("Beginning Phase 4.")
-        # Step 4: Assemble the session key from KRF-i parts
+        # Phase 4: Assemble session key
+        print("Beginning Phase 4: Assembling session key.")
         unfinished_session_key = collect_key_shares_and_assemble(krf_i_list)
 
-        print("Beginning Phase 5.")
-        # Step 5: Encrypt the session key and send it back to the Receiver
+        # Phase 5: Encrypt and send session key
+        print("Beginning Phase 5: Encrypting and sending session key.")
+        if unfinished_session_key is None:
+            raise ValueError("Failed to assemble a complete session key.")
+
         encrypted_session_key = encrypt_session_key(unfinished_session_key)
-        print("Preparing unfinished session key and Sr.")
 
         Sr = krf_data["Sr"]
-        # Parse if Sr is a JSON string
         if isinstance(Sr, str):
-            print("Sr is a string; attempting to parse JSON.")
             Sr = json.loads(Sr)
 
-        encrypted_Sr = bytes.fromhex(Sr["Sr"])  # Convert hex string to bytes
+        encrypted_Sr = bytes.fromhex(Sr["Sr"])  # Ensure valid format
         payload = {
             "encrypted_unfinished_session_key": encrypted_session_key.hex(),
             "Sr": encrypted_Sr.hex(),
         }
-        payload_json = json.dumps(payload)
-        payload_bytes = payload_json.encode('utf-8')
-        print("Key data size in bytes:", len(payload_bytes))
-        client_socket.send(payload_bytes)
-        print("Keys sent.")
+        client_socket.send(json.dumps(payload).encode('utf-8'))
+        print("Keys successfully sent.")
 
     except Exception as e:
-        error_response = {"status": "error", "message": str(e)}
-        client_socket.send(json.dumps(error_response).encode('utf-8'))
+        error_message = f"Error: {str(e)}"
+        print(error_message)  # Log error for debugging
+        error_response = {"status": "error", "message": error_message}
+        try:
+            client_socket.send(json.dumps(error_response).encode('utf-8'))
+        except Exception as send_error:
+            print(f"Failed to send error response: {send_error}")
     finally:
         print("Closing connection after finishing recovery process.")
         client_socket.close()

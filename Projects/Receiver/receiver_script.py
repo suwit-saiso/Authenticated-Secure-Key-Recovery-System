@@ -3,35 +3,14 @@ import socket
 import json
 from flask import Flask, request, jsonify
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.backends import default_backend
+# from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa, padding 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
 import os
 import time
 import hashlib
-
-# added lib
-import uuid
-
-#=========================== JSON payload test ======================================
-# def load_payload_from_file(filename="payload.json"):
-#     """
-#     Load the payload from a file.
-
-#     Args:
-#         filename (str): The name of the file to load the payload from. Defaults to "payload.json".
-
-#     Returns:
-#         dict: The loaded payload.
-#     """
-#     try:
-#         with open(filename, "r") as file:
-#             payload = json.load(file)
-#             return payload
-#     except Exception as e:
-#         print(f"Error loading payload from file: {e}")
-#         raise
+# import uuid
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -162,6 +141,118 @@ def encrypt_challenge_code(challenge_code, krc_public_key):
     
     return encrypted_challenge_code
 
+# def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
+#     try:
+#         print("Starting recovery process.")
+        
+#         # Generate PKCE-like challenge
+#         challenge_code, challenge_verifier = generate_pkce_challenge()
+#         timestamp = int(time.time())  # Add current timestamp
+        
+#         # Prepare key recovery request to KRC
+#         recovery_request = {
+#             'challenge_verifier': challenge_verifier.hex(),  # Convert byte data to hex string
+#             'session_id': session_id if isinstance(session_id, str) else session_id.hex(),
+#             'timestamp': timestamp
+#         }
+#         print("Recovery request prepared:", recovery_request)
+
+#         # Serialize recovery request to JSON
+#         json_request = json.dumps(recovery_request)
+
+#         # Encrypt the recovery request with KRC's public key
+#         encrypted_request = krc_public_key.encrypt(
+#             json_request.encode(),
+#             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+#         )
+
+#         print("Preparing request payload...")
+#         payload = {
+#             "encrypted_request": encrypted_request.hex(),
+#             "encrypted_krf": encrypted_krf,
+#             "encrypted_AES_key": encrypted_AES_key,
+#             "iv_aes": iv_AES
+#         }
+
+#         payload_json = json.dumps(payload)
+#         payload_bytes = payload_json.encode('utf-8')
+#         print("Payload size in bytes:", len(payload_bytes))
+
+#         # Send the encrypted request to the KRC
+#         connection = send_to_krc(payload_bytes,False,None)
+
+#         # Simulate receiving response from KRC
+#         krc_response = receive_response_from_krc(connection)
+#         print("first response:",krc_response)
+#         response = krc_response.get('response')
+#         print("actual response:",response)
+#         if response != "Request accepted, please verify yourself":
+#             print("Request denied by KRC.")
+#             return "Request denied"
+
+#         print("Request accepted, proceeding to verification.")
+        
+#         # Encrypt the challenge code to verify identity with KRC
+#         encrypted_challenge_code = encrypt_challenge_code(challenge_code, krc_public_key)
+
+#         payload = {
+#             "encrypted_challenge_code": encrypted_challenge_code.hex()
+#         }
+#         print("Verification payload prepared:", json.dumps(payload, indent=4))
+        
+#         payload_json = json.dumps(payload)
+#         payload_bytes = payload_json.encode('utf-8')
+#         print("Payload size in bytes:", len(payload_bytes))
+#         # Send verification data to KRC
+#         connection2 = send_to_krc(payload_bytes,True,connection)
+
+#         # Receive the authentication response from KRC
+#         krc_auth_response = receive_response_from_krc(connection2)
+#         print("auth resposne:",krc_auth_response)
+#         auth_response = krc_auth_response.get('response')
+#         print("actual auth response:",auth_response)
+#         if auth_response != "Authenticate successfully":
+#             print("Authentication failed.")
+#             return "Authentication failed"
+
+#         print("Authentication successful. Wait to receiving session key parts.")
+        
+#         # Receive the unfinished session key and Sr from KRC
+#         key_parts = receive_from_krc(connection2)
+
+#         encrypted_unfinished_session_key = key_parts.get("encrypted_unfinished_session_key")
+#         if isinstance(encrypted_unfinished_session_key, str):
+#             encrypted_unfinished_session_key = bytes.fromhex(encrypted_unfinished_session_key)
+
+#         unfinished_session_key = receiver_private_key.decrypt(
+#             encrypted_unfinished_session_key,
+#             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+#         )
+
+#         encrypted_Sr = key_parts.get('Sr')
+#         if isinstance(encrypted_Sr, str):
+#             encrypted_Sr = bytes.fromhex(encrypted_Sr)
+
+#         Sr = receiver_private_key.decrypt(
+#             encrypted_Sr,
+#             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+#         )
+
+#         # Assemble the complete session key
+#         session_key = xor(unfinished_session_key, Sr)
+#         print("Session key assembly complete.")
+#         return session_key
+
+#     except KeyError as e:
+#         print(f"Missing key in response: {e}")
+#         return f"Error: Missing key {e}"
+#     except ValueError as e:
+#         print(f"Invalid value encountered: {e}")
+#         return f"Error: {e}"
+#     except Exception as e:
+#         print(f"Unexpected error during session key recovery: {e}")
+#         return f"Error: {e}"
+
 def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
     try:
         print("Starting recovery process.")
@@ -172,16 +263,14 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         
         # Prepare key recovery request to KRC
         recovery_request = {
-            'challenge_verifier': challenge_verifier.hex(),  # Convert byte data to hex string
+            'challenge_verifier': challenge_verifier.hex(),
             'session_id': session_id if isinstance(session_id, str) else session_id.hex(),
             'timestamp': timestamp
         }
         print("Recovery request prepared:", recovery_request)
 
-        # Serialize recovery request to JSON
+        # Serialize and encrypt recovery request
         json_request = json.dumps(recovery_request)
-
-        # Encrypt the recovery request with KRC's public key
         encrypted_request = krc_public_key.encrypt(
             json_request.encode(),
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
@@ -195,92 +284,82 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
             "iv_aes": iv_AES
         }
 
-        payload_json = json.dumps(payload)
-        payload_bytes = payload_json.encode('utf-8')
-        print("Payload size in bytes:", len(payload_bytes))
+        # Send the request to KRC
+        payload_bytes = json.dumps(payload).encode('utf-8')
+        connection = send_to_krc(payload_bytes, False, None)
 
-        # Send the encrypted request to the KRC
-        connection = send_to_krc(payload_bytes,False,None)
-
-        # Simulate receiving response from KRC
+        # Receive initial response from KRC
         krc_response = receive_response_from_krc(connection)
-        print("first response:",krc_response)
-        response = krc_response.get('response')
-        print("actual response:",response)
+        print("First response from KRC:", krc_response)
+
+        # Validate response structure
+        if not isinstance(krc_response, dict) or 'response' not in krc_response:
+            raise ValueError(f"Invalid response from KRC: {krc_response}")
+
+        response = krc_response['response']
         if response != "Request accepted, please verify yourself":
-            print("Request denied by KRC.")
-            return "Request denied"
+            print("Request denied by KRC:", response)
+            return f"Error: {response}"
 
         print("Request accepted, proceeding to verification.")
-        
-        # Encrypt the challenge code to verify identity with KRC
+
+        # Encrypt the challenge code for verification
         encrypted_challenge_code = encrypt_challenge_code(challenge_code, krc_public_key)
 
-        payload = {
+        verification_payload = {
             "encrypted_challenge_code": encrypted_challenge_code.hex()
         }
-        print("Verification payload prepared:", json.dumps(payload, indent=4))
-        
-        payload_json = json.dumps(payload)
-        payload_bytes = payload_json.encode('utf-8')
-        print("Payload size in bytes:", len(payload_bytes))
+
         # Send verification data to KRC
-        connection2 = send_to_krc(payload_bytes,True,connection)
+        verification_bytes = json.dumps(verification_payload).encode('utf-8')
+        connection2 = send_to_krc(verification_bytes, True, connection)
 
-        # Receive the authentication response from KRC
+        # Receive authentication response
         krc_auth_response = receive_response_from_krc(connection2)
-        print("auth resposne:",krc_auth_response)
-        auth_response = krc_auth_response.get('response')
-        print("actual auth response:",auth_response)
+        print("Authentication response from KRC:", krc_auth_response)
+
+        # Validate authentication response structure
+        if not isinstance(krc_auth_response, dict) or 'response' not in krc_auth_response:
+            raise ValueError(f"Invalid authentication response from KRC: {krc_auth_response}")
+
+        auth_response = krc_auth_response['response']
         if auth_response != "Authenticate successfully":
-            print("Authentication failed.")
-            return "Authentication failed"
+            print("Authentication failed:", auth_response)
+            return f"Error: {auth_response}"
 
-        print("Authentication successful. Wait to receiving session key parts.")
-        
-        # Receive the unfinished session key and Sr from KRC
+        print("Authentication successful. Waiting to receive session key parts.")
+
+        # Receive the session key parts
         key_parts = receive_from_krc(connection2)
-        print("DEBUG!!!")
-        print("Keypart data", type(key_parts))
-        payload_json = json.dumps(key_parts)
-        payload_bytes = payload_json.encode('utf-8')
-        print("Key data size in bytes:", len(payload_bytes))
+        print("Key parts received from KRC:", key_parts)
 
-        encrypted_unfinished_session_key = key_parts.get("encrypted_unfinished_session_key")
-        if isinstance(encrypted_unfinished_session_key, str):
-            encrypted_unfinished_session_key = bytes.fromhex(encrypted_unfinished_session_key)
+        # Validate key parts structure
+        if not isinstance(key_parts, dict) or 'encrypted_unfinished_session_key' not in key_parts or 'Sr' not in key_parts:
+            raise ValueError(f"Invalid key parts received from KRC: {key_parts}")
 
+        # Decrypt the unfinished session key and Sr
+        encrypted_unfinished_session_key = bytes.fromhex(key_parts['encrypted_unfinished_session_key'])
         unfinished_session_key = receiver_private_key.decrypt(
             encrypted_unfinished_session_key,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
 
-        encrypted_Sr = key_parts.get('Sr')
-        if isinstance(encrypted_Sr, str):
-            encrypted_Sr = bytes.fromhex(encrypted_Sr)
-
+        encrypted_Sr = bytes.fromhex(key_parts['Sr'])
         Sr = receiver_private_key.decrypt(
             encrypted_Sr,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
 
-        # Assemble the complete session key
+        # Assemble the session key
         session_key = xor(unfinished_session_key, Sr)
         print("Session key assembly complete.")
-        print("!!!!!!!!!DEBUG!!!!!!!!!!!")
-        print("Sr:",Sr)
-        print("unfinished session key",unfinished_session_key)
-        print("new session key:",session_key)
         return session_key
 
-    except KeyError as e:
-        print(f"Missing key in response: {e}")
-        return f"Error: Missing key {e}"
     except ValueError as e:
-        print(f"Invalid value encountered: {e}")
+        print(f"Value error: {e}")
         return f"Error: {e}"
     except Exception as e:
-        print(f"Unexpected error during session key recovery: {e}")
+        print(f"Unexpected error: {e}")
         return f"Error: {e}"
 
 # Session Cleanup
@@ -314,10 +393,7 @@ def send_to_krc(data,have_connection,s):
 # Receive response from KRC 
 def receive_response_from_krc(s):
     try:
-        # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # s.settimeout(30)  # Set a 30-second timeout
-        # s.connect((KRC_HOST, KRC_PORT))
-        response = s.recv(1024)
+        response = s.recv(2048)
         print("Response received from KRC.")
         return json.loads(response.decode())
     except socket.timeout:
@@ -332,11 +408,7 @@ def receive_response_from_krc(s):
 
 # Receive session key from KRC 
 def receive_from_krc(s):
-    # s = None
     try:
-        # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # s.settimeout(100)  # Set a 100-second timeout
-        # s.connect((KRC_HOST, KRC_PORT))
         new_session_key = s.recv(2048)
         return json.loads(new_session_key.decode())
     except socket.timeout:
@@ -379,9 +451,6 @@ def receive_from_sender(session_id, iv, encrypted_message):
 
         session["session_key"] = recovered_key
         print("Start decrypting message using given recovered session key.")
-        print("!!!!!!!!!!DEBUG!!!!!!!!!!!")
-        print("recovered session key:",recovered_key)
-        print("iv:",iv)
         decrypted_message = decrypt_plaintext(encrypted_message, recovered_key, iv)
         print(f"Decrypted message: {decrypted_message}")
         print("session_key_used: from KRC")
@@ -392,8 +461,6 @@ def receive_from_sender(session_id, iv, encrypted_message):
     decrypted_message = decrypt_plaintext(encrypted_message, session_key, iv)
     print(f"Decrypted message: {decrypted_message}")
     print("session_key_used: from sender")
-    print("!!!!!!!!!DEBUG!!!!!!!!")
-    print(f"session:{session_id},session key:{session_key} and iv:{iv} !!!")
     return {"decrypted_message": decrypted_message, "session_key_used": "from sender"}
 
 def handle_sender_connection(conn):
@@ -472,65 +539,6 @@ def handle_sender_connection(conn):
     finally:
         conn.close()
         print("Connection closed.")
-
-# # Disable after TEST PHASE
-# def testjsonformat():
-#     try:
-#         print("Test start")
-#         # Load and parse payload
-#         data = load_payload_from_file()
-#         # If 'data' is a raw string read from a file
-#         if isinstance(data, str):
-#             request = json.loads(data)  # Parse the JSON string into a dict
-#         else:
-#             request = data  # Already a dict, no need to parse
-
-#         # Validate required fields
-#         required_keys = ['session_id', 'iv', 'encrypted_message']
-#         for key in required_keys:
-#             if key not in request:
-#                 raise ValueError(f"Missing key: {key}")
-
-#         # Extract mandatory fields
-#         session_id = request['session_id']
-#         encrypted_message = request['encrypted_message']
-#         iv = request['iv']
-
-#         # Extract optional fields with default values
-#         encrypted_session_key = request.get('encrypted_session_key', None)
-#         encrypted_krf = request.get('encrypted_krf', None)
-#         encrypted_AES_key = request.get('encrypted_AES_key', None)
-#         iv_AES = request.get('iv_aes', None)
-
-#         if isinstance(encrypted_session_key, str):
-#                     # Convert hex string to bytes
-#                     encrypted_session_key = bytes.fromhex(encrypted_session_key)
-#         if isinstance(encrypted_message, str):
-#                     # Convert hex string to bytes
-#                     encrypted_message = bytes.fromhex(encrypted_message)
-
-#         print("Extracted data successfully.")
-#         # Handle session
-#         if session_id not in sessions:
-#             print("Establishing new session...")
-#             session_key = decrypt_session_key(encrypted_session_key)
-#             if encrypted_krf:
-#                 establish_session(session_id, session_key, encrypted_krf, iv, encrypted_message, encrypted_AES_key, iv_AES)
-#             print("Session established.")
-
-#         # Process message
-#         print("Processing message...")
-#         response = receive_from_sender(session_id, iv, encrypted_message)
-
-#         # Temporary: Log the response
-#         print("Response:", response)
-
-#     except (KeyError, ValueError, TypeError, json.JSONDecodeError) as e:
-#         print(f"Error: {e}")
-#     except Exception as e:
-#         print(f"Unexpected error: {e}")
-#     finally:
-#         print("Test complete.")
 
 # Function to start the socket server
 def start_socket_server():
