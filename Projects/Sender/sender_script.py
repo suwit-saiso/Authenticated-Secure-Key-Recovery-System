@@ -193,8 +193,12 @@ def test_assemble_krf(session_key, num_agents, si_values, sr, sgn):
     # Verify TTi values for each Si
     print("\n--- Testing TTi Values ---")
     for i, si in enumerate(si_values, start=1):
-        tti = xor(si, sgn)  # Calculate TTi as Si XOR SGN
+        expected_tti = xor(si, sgn)  # Expected TTi = Si XOR SGN
+        print(f"  Expected TTi_{i}: {expected_tti.hex()}")
+        
+        tti = xor(si, sgn)  # Calculate TTi during test
         calculated_si = xor(tti, sgn)  # Verify Si = TTi XOR SGN
+        
         print(f"  TTi_{i}: {tti.hex()}")
         print(f"  Si_{i} (Reconstructed): {calculated_si.hex()}")
         print(f"  Match for Si_{i}: {calculated_si == si}")
