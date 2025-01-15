@@ -157,7 +157,7 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
 def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
 
-def test_assemble_krf(session_key, num_agents, si_values, sr):
+def test_assemble_krf(session_key, num_agents, si_values, sr,sgn):
     """
     Test the reconstruction of the session key and intermediate XOR states.
     """
@@ -188,6 +188,7 @@ def test_assemble_krf(session_key, num_agents, si_values, sr):
         intermediate_xor = xor(intermediate_xor, si)
     print(f"Intermediate XOR of Si: {intermediate_xor.hex()}")
     print("Intermediate XOR Match with Sr:", intermediate_xor == sr)
+    print("SGN:",sgn)
 
 # Generate KRF
 def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id):
@@ -265,7 +266,7 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
 
     print(f"Generated KRF: {len(krf)} components created successfully.")
     # DEBUG: Test reconstruction
-    test_assemble_krf(session_key, num_kras, si_values, sr)
+    test_assemble_krf(session_key, num_kras, si_values, sr,sgn)
     return krf
 
 # Send data to Receiver

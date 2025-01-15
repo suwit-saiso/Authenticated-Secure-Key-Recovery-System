@@ -489,29 +489,25 @@ def handle_failed_kra(kra_index, payload, challenge_verifier):
 def handle_kra_failure(krf_i_list, krf):
     print("Handling overall KRA failure for missing KRF-i parts.")
     
-    # Step 1: Extract and process the SGN values as bytes
+    # Step 1: Extract and validate SGN values
     sgn_values = [bytes.fromhex(krf_i["SGN"]) for krf_i in krf_i_list if krf_i is not None]
     if not sgn_values:
         raise ValueError("No valid SGN found in KRF-i list.")
-    
-    # Check if all SGN values are the same
     if len(set(sgn_values)) != 1:
         raise ValueError("Inconsistent SGN values found in KRF-i list.")
-    
-    # Remember the common SGN (in bytes)
     SGN = sgn_values[0]
     print(f"Consistent SGN identified as: {SGN.hex()}")
-    
-    # Step 2: Identify missing KRF-i parts (indices with None)
+
+    # Step 2: Identify missing KRF-i parts
     missing_indices = [i for i, krf_i in enumerate(krf_i_list) if krf_i is None]
     print(f"Missing KRF-i indices: {missing_indices}")
-    
+
     # Step 3: Recreate missing KRF-i parts
     for i in missing_indices:
         # Retrieve and decrypt the corresponding TT-i value
         outer_encrypted_TTi = krf[f"TT-{i + 1}"]  # i + 1 corresponds to KRA-1 to KRA-5
         if isinstance(outer_encrypted_TTi, str):
-            print("outer_encrypted_TTi is a string; attempting to parse JSON.")
+            print("Parsing outer_encrypted_TTi JSON.")
             outer_encrypted_TTi = json.loads(outer_encrypted_TTi)
 
         encrypted_TTi = bytes.fromhex(outer_encrypted_TTi["TTi"])  # Convert hex string to bytes
@@ -519,17 +515,23 @@ def handle_kra_failure(krf_i_list, krf):
             encrypted_TTi,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
-        
-        # Calculate Si as bytes using XOR
-        Si = xor(SGN, TTi)  # XOR operation
-        
+
+        # Debug: Verify decrypted TT-i
+        print(f"Decrypted TT-{i + 1}: {TTi.hex()}")
+
+        # Calculate Si using XOR
+        Si = xor(SGN, TTi)  # S_i = TTi XOR SGN
+
+        # Debug: Verify reconstructed Si
+        print(f"Reconstructed S_{i + 1}: {Si.hex()}")
+
         # Recreate KRF-i as a dictionary with hex strings
         recreated_krf_i = {"Si": Si.hex(), "SGN": SGN.hex()}
         print(f"Recreated KRF-{i + 1}: {recreated_krf_i}")
-        
+
         # Save the recreated KRF-i in the list
         krf_i_list[i] = recreated_krf_i
-    
+
     # Step 4: Return the updated KRF-i list
     print("KRF-i list successfully completed.")
     return krf_i_list
