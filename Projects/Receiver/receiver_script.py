@@ -299,7 +299,7 @@ def send_to_krc(data,have_connection,s):
             print("Data sent to KRC.")
             return s
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(10)  # Set a 10-second timeout
+        s.settimeout(60)  # Set a 10-second timeout
         s.connect((KRC_HOST, KRC_PORT))
         s.sendall(len(data).to_bytes(4, byteorder="big") + data)
         print("Data sent to KRC.")
