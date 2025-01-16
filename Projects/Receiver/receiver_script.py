@@ -164,7 +164,6 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
 
-        print("Preparing request payload...")
         payload = {
             "encrypted_request": encrypted_request.hex(),
             "encrypted_krf": encrypted_krf,
@@ -175,45 +174,50 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         # Send the request to KRC
         payload_bytes = json.dumps(payload).encode('utf-8')
         connection = send_to_krc(payload_bytes, False, None)
+        if not connection:
+            print("Failed to establish connection with KRC.")
+            return "KRC unavailable"
 
         # Receive initial response from KRC
         krc_response = receive_response_from_krc(connection)
-        print("First response from KRC:", krc_response)
+        if "error" in krc_response:
+            print("Error received from KRC:", krc_response["error"])
+            return krc_response["error"]
 
         # Validate response structure
         if not isinstance(krc_response, dict) or 'response' not in krc_response:
             raise ValueError(f"Invalid response from KRC: {krc_response}")
 
-        response = krc_response['response']
-        if response != "Request accepted, please verify yourself":
-            print("Request denied by KRC:", response)
-            return f"Error: {response}"
+        if krc_response.get('response') != "Request accepted, please verify yourself":
+            print("Request denied by KRC.")
+            return "Request denied by KRC"
 
         print("Request accepted, proceeding to verification.")
 
-        # Encrypt the challenge code for verification
+        # Proceed with verification
         encrypted_challenge_code = encrypt_challenge_code(challenge_code, krc_public_key)
 
         verification_payload = {
             "encrypted_challenge_code": encrypted_challenge_code.hex()
         }
-
         # Send verification data to KRC
         verification_bytes = json.dumps(verification_payload).encode('utf-8')
+        # Reuse existing connection for verification
         connection2 = send_to_krc(verification_bytes, True, connection)
+        if not connection2:
+            print("Failed to reuse connection for verification.")
+            return "KRC verification failed"
 
         # Receive authentication response
         krc_auth_response = receive_response_from_krc(connection2)
-        print("Authentication response from KRC:", krc_auth_response)
-
+        
         # Validate authentication response structure
         if not isinstance(krc_auth_response, dict) or 'response' not in krc_auth_response:
             raise ValueError(f"Invalid authentication response from KRC: {krc_auth_response}")
 
-        auth_response = krc_auth_response['response']
-        if auth_response != "Authenticate successfully":
-            print("Authentication failed:", auth_response)
-            return f"Error: {auth_response}"
+        if krc_auth_response.get('response') != "Authenticate successfully":
+            print("Authentication failed.")
+            return "Authentication failed"
 
         print("Authentication successful. Waiting to receive session key parts.")
 
@@ -243,11 +247,11 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         print("Session key assembly complete.")
         return session_key
 
-    except ValueError as e:
-        print(f"Value error: {e}")
-        return f"Error: {e}"
+    except ValueError as ve:
+        print(f"Value error during recovery: {ve}")
+        return f"Error: {ve}"
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Unexpected error during recovery: {e}")
         return f"Error: {e}"
 
 # Session Cleanup
@@ -265,6 +269,8 @@ def send_to_krc(data,have_connection,s):
             s.sendall(len(data).to_bytes(4, byteorder="big") + data)
             print("Data sent to KRC.")
             return s
+        
+        # Attempt to create a new socket connection
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(120)  # Set a 120-second timeout
         s.connect((KRC_HOST, KRC_PORT))
@@ -273,41 +279,68 @@ def send_to_krc(data,have_connection,s):
         return s
     except socket.timeout:
         print("Timeout while sending data to KRC")
-    except ConnectionRefusedError:
-        print("Error: Connection refused.")
+        return None
+    except (ConnectionRefusedError, ConnectionResetError):
+        print("Error: Unable to connect to KRC.")
+        return None
     except Exception as e:
-        print(f"Error in send_to_krc: {e}")
+        print(f"Unexpected error in send_to_krc: {e}")
+        return None
 
 # Receive response from KRC 
 def receive_response_from_krc(s):
     try:
+        if not s:
+            raise ConnectionError("No valid socket connection to KRC.")
+        
         response = s.recv(2048)
         print("Response received from KRC.")
-        return json.loads(response.decode())
+        response_json = json.loads(response.decode())
+
+        if not isinstance(response_json, dict):
+            raise ValueError("Response is not a valid JSON object.")
+
+        return response_json
     except socket.timeout:
         print("Timeout while waiting for response from KRC")
         return {"error": "Timeout"}
-    except ConnectionRefusedError:
-        print("Error: Connection refused.")
-        return {"error": "Connection refused"}
+    except (ConnectionRefusedError, ConnectionResetError):
+        print("Error: Connection issue while receiving response from KRC.")
+        return {"error": "Connection issue"}
     except Exception as e:
-        print(f"Error in receive_response_from_krc: {e}")
+        print(f"Unexpected error in receive_response_from_krc: {e}")
         return {"error": str(e)}
 
 # Receive session key from KRC 
 def receive_from_krc(s):
     try:
+        if not s:
+            raise ConnectionError("No valid socket connection to KRC.")
+        
+        print("Waiting to receive session key from KRC...")
         new_session_key = s.recv(2048)
-        return json.loads(new_session_key.decode())
+        if not new_session_key:
+            raise ValueError("No data received from KRC.")
+
+        # Decode and parse the JSON response
+        key_data = json.loads(new_session_key.decode())
+        if not isinstance(key_data, dict):
+            raise ValueError("Invalid format received for session key data.")
+
+        print("Session key data successfully received from KRC.")
+        return key_data
     except socket.timeout:
-        print("Timeout while waiting for session key from KRC")
-        return None
+        print("Timeout while waiting for session key from KRC.")
+        return {"error": "Timeout"}
     except ConnectionRefusedError:
-        print("Error: Connection refused.")
-        return None
+        print("Error: Connection to KRC refused.")
+        return {"error": "Connection refused"}
+    except ValueError as ve:
+        print(f"Data validation error: {ve}")
+        return {"error": str(ve)}
     except Exception as e:
-        print(f"Error in receive_from_krc: {e}")
-        return None
+        print(f"Unexpected error in receive_from_krc: {e}")
+        return {"error": str(e)}
     finally:
         if s:
             print("Closing connection after receiving session key.")
@@ -320,36 +353,65 @@ def establish_session(session_id, session_key, encrypted_krf, iv, encrypted_mess
 
 # Function to handle messages from the sender
 def receive_from_sender(session_id, iv, encrypted_message):
-    print("Start handling message.")
-    session = sessions.get(session_id)
-    if not session:
-        return "Session not found"
-
-    session_key = session.get("session_key")
-    if not session_key:
-        print("Session key missing, initiating recovery.")
-        encrypted_krf = session.get("krf")
-        encrypted_AES_key = session.get("AES_key")
-        iv_AES = session.get("iv_AES")
-        recovered_key = recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES)
-
-        if recovered_key in ["Authentication failed", "Request denied"]:
-            print("Recover failed")
-            return f"Error: {recovered_key}"
-
-        session["session_key"] = recovered_key
-        print("Start decrypting message using given recovered session key.")
-        decrypted_message = decrypt_plaintext(encrypted_message, recovered_key, iv)
+    try:
+        print("Start handling message.")
+        
+        # Retrieve session information
+        session = sessions.get(session_id)
+        if not session:
+            print(f"Session not found for session_id: {session_id}")
+            return {"error": "Session not found"}
+        
+        # Attempt to get the session key from the session
+        session_key = session.get("session_key")
+        
+        if not session_key:
+            print("Session key missing, initiating recovery.")
+            
+            # Retrieve required details for session key recovery
+            encrypted_krf = session.get("krf")
+            encrypted_AES_key = session.get("AES_key")
+            iv_AES = session.get("iv_AES")
+            
+            if not all([encrypted_krf, encrypted_AES_key, iv_AES]):
+                print("Missing data for session key recovery.")
+                return {"error": "Missing data for session key recovery"}
+            
+            # Recover the session key
+            recovered_key = recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES)
+            
+            if recovered_key in ["Authentication failed", "Request denied"]:
+                print(f"Session key recovery failed: {recovered_key}")
+                return {"error": recovered_key}
+            
+            if not isinstance(recovered_key, bytes):
+                print(f"Invalid session key recovered: {recovered_key}")
+                return {"error": "Recovered session key is invalid"}
+            
+            # Update session with the recovered key
+            session["session_key"] = recovered_key
+            print("Session key successfully recovered and stored.")
+            session_key = recovered_key
+            session_key_source = "from KRC"
+        else:
+            session_key_source = "from sender"
+        
+        # Decrypt the message
+        print(f"Start decrypting message using session key {session_key_source}.")
+        decrypted_message = decrypt_plaintext(encrypted_message, session_key, iv)
         print(f"Decrypted message: {decrypted_message}")
-        print("session_key_used: from KRC")
-        return {"decrypted_message": decrypted_message, "session_key_used": "from KRC"}
-
-    # Decrypt with existing session key
-    print("Start decrypting message using given session key.")
-    decrypted_message = decrypt_plaintext(encrypted_message, session_key, iv)
-    print(f"Decrypted message: {decrypted_message}")
-    print("session_key_used: from sender")
-    return {"decrypted_message": decrypted_message, "session_key_used": "from sender"}
+        
+        return {
+            "decrypted_message": decrypted_message,
+            "session_key_used": session_key_source
+        }
+    
+    except ValueError as ve:
+        print(f"Value error during message handling: {ve}")
+        return {"error": f"Value error: {ve}"}
+    except Exception as e:
+        print(f"Unexpected error during message handling: {e}")
+        return {"error": f"Unexpected error: {e}"}
 
 def handle_sender_connection(conn):
     try:
@@ -436,8 +498,6 @@ def start_socket_server():
         print(f"Socket server listening on {LISTEN_HOST}:{LISTEN_PORT}")
 
         while True:
-            # DELETER AFTER
-            # testjsonformat()
             print("Waiting for a connection...")
             conn, addr = server.accept()
             print(f"Connection from {addr}")
@@ -453,7 +513,6 @@ def manual_test():
             # when start test before having data
             print("No session found")
             return jsonify({"message": "No session found"}), 404
-
 
         # Take the latest session_id
         latest_session_id = list(sessions.keys())[-1]
