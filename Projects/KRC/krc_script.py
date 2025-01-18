@@ -1,15 +1,79 @@
 import socket
 import json
-# import struct
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding,rsa
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 import hashlib
-# import time
 
-#========================= Setup =========================
+#========================= Key Setup =========================
+# Define key paths
+BASE_FOLDER = os.path.dirname(os.path.abspath(__file__))  # Container's base folder
+KEYS_FOLDER = os.path.join(BASE_FOLDER, "keys")
+SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))  # Adjust relative path
+# Global variable to store keys
+keys = {}
+
+# Ensure a folder exists
+def ensure_folder_exists(folder):
+    try:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+    except Exception as e:
+        print(f"Error creating folder {folder}: {e}")
+
+# Function to generate RSA Key Pair
+def generate_rsa_key_pair():
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+    return private_key, public_key
+
+# Function to save a private key to a file
+def save_private_key(private_key, filename):
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(pem)
+
+# Function to save a public key to a file
+def save_public_key(public_key, filename):
+    pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(pem)
+
+# Main key generation function
+def generate_and_store_keys(entity_name):
+    ensure_folder_exists(KEYS_FOLDER)
+    ensure_folder_exists(SHARED_KEYS_FOLDER)
+
+    # File paths
+    private_key_path = os.path.join(KEYS_FOLDER, f"{entity_name}_private.pem")
+    public_key_path = os.path.join(KEYS_FOLDER, f"{entity_name}_public.pem")
+    shared_public_key_path = os.path.join(SHARED_KEYS_FOLDER, f"{entity_name}_public.pem")
+
+    # Generate key pair
+    private_key, public_key = generate_rsa_key_pair()
+
+    # Save keys
+    try:
+        save_private_key(private_key, private_key_path)
+        save_public_key(public_key, public_key_path)
+        save_public_key(public_key, shared_public_key_path)
+
+        print(f"Keys for {entity_name} saved successfully:")
+        print(f"  Private key -> {private_key_path}")
+        print(f"  Public key -> {public_key_path}")
+        print(f"  Public key (shared) -> {shared_public_key_path}")
+    except Exception as e:
+        print(f"Error saving keys for {entity_name}: {e}")
+
 # Load keys
 def load_private_key(file_path):
     with open(file_path, "rb") as key_file:
@@ -21,31 +85,40 @@ def load_public_key(file_path):
         public_key = serialization.load_pem_public_key(key_file.read())
     return public_key
 
-# Get the directory of the current script
-script_dir = os.path.abspath(os.path.dirname(__file__))
+def load_keys():
+    # Get the directory of the current script
+    script_dir = os.path.abspath(os.path.dirname(__file__))
 
-# Paths for KRC's private and public keys (in the same level as script)
-krc_private_key_path = os.path.join(script_dir, "keys", "krc_private.pem")
-krc_public_key_path = os.path.join(script_dir, "keys", "krc_public.pem")
+    # Paths for KRC's private and public keys (in the same level as script)
+    krc_private_key_path = os.path.join(script_dir, "keys", "krc_private.pem")
+    krc_public_key_path = os.path.join(script_dir, "keys", "krc_public.pem")
 
-# Paths for Shared folder keys (parallel to the Sender folder)
-shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
-receiver_public_key_path = os.path.join(shared_keys_dir, "receiver_public.pem")
+    # Paths for Shared folder keys (parallel to the Sender folder)
+    shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
+    receiver_public_key_path = os.path.join(shared_keys_dir, "receiver_public.pem")
 
-kra_public_key_paths = [
-    os.path.join(shared_keys_dir, f"kra{i}_public.pem") for i in range(1, 6)
-]
+    kra_public_key_paths = [
+        os.path.join(shared_keys_dir, f"kra{i}_public.pem") for i in range(1, 6)
+    ]
 
-# Load keys with error checking
-try:
-    krc_private_key = load_private_key(krc_private_key_path)
-    krc_public_key = load_public_key(krc_public_key_path)
+    # Dictionary to hold the keys
+    keys = {}
 
-    receiver_public_key = load_public_key(receiver_public_key_path)
+    # Load keys with error checking
+    try:
+        # Load krc keys
+        keys["krc_private_key"] = load_private_key(krc_private_key_path)
+        keys["krc_public_key"] = load_public_key(krc_public_key_path)
 
-    kra_public_keys = [load_public_key(path) for path in kra_public_key_paths]
-except FileNotFoundError as e:
-    raise FileNotFoundError(f"Key file not found: {e}")
+        # Load shared keys
+        keys["receiver_public_key"] = load_public_key(receiver_public_key_path)
+        keys["kra_public_keys"] = [load_public_key(path) for path in kra_public_key_paths]
+
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Key file not found: {e}")
+    
+    print("Keys loaded successfully.")
+    return keys
 
 # Store KRA challenge verifiers
 kra_challenge_verifiers = {}
@@ -94,7 +167,7 @@ def decrypt_data(data, AES_key, iv):
 def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_key, iv_aes):
     print("Start to decrypt request.")
     # decrypt the recovery request with KRC's privat key
-    decrypted_request = krc_private_key.decrypt(
+    decrypted_request = keys["krc_private_key"].decrypt(
         encrypted_request,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
@@ -110,7 +183,7 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
 
     print("Start decrypt AES key.")
     # decrypt the AES key with KRC's privat key
-    decrypted_AES_key = krc_private_key.decrypt(
+    decrypted_AES_key = keys["krc_private_key"].decrypt(
         encrypted_AES_key,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
@@ -166,7 +239,7 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
         # Step 4: Decrypt session info
         try:
             print("Attempting to decrypt session info...")
-            session_info_decrypted = krc_private_key.decrypt(
+            session_info_decrypted = keys["krc_private_key"].decrypt(
                 encrypted_session_info,
                 padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
             )
@@ -222,7 +295,7 @@ def client_validation(client_socket, requester_challenge_verifier):
         print('Receiving data from Requester.Try to validat request')
         encrypted_challenge = bytes.fromhex(data['encrypted_challenge_code'])
         # decrypt the challenge code with KRC's privat key
-        decrypted_challenge = krc_private_key.decrypt(
+        decrypted_challenge = keys["krc_private_key"].decrypt(
             encrypted_challenge,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
@@ -281,7 +354,7 @@ def distribute_krf_to_kras(krf, kra_public_keys):
             # decrypt challenge verifier
             encrypted_kra_challenge_verifier = bytes.fromhex(kra_response["encrypted_challenge_verifier"])
             print("Decrypting challenge verifier.")
-            kra_challenge_verifier = krc_private_key.decrypt(
+            kra_challenge_verifier = keys["krc_private_key"].decrypt(
                 encrypted_kra_challenge_verifier,
                 padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
             )
@@ -320,7 +393,7 @@ def distribute_krf_to_kras(krf, kra_public_keys):
             re_encrypted_krf_i = bytes.fromhex(encrypted_krf_i["encrypted_krf_i"])
             # Decrypt re_encrypted_krf_i with KRC' privat key
             print("Decrypting re-encrypted KRF-i.")
-            decrypted_krf_i = krc_private_key.decrypt(
+            decrypted_krf_i = keys["krc_private_key"].decrypt(
                 re_encrypted_krf_i,
                 padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
             )
@@ -411,7 +484,7 @@ def encrypt_session_key(session_key):
         print("Error: Session key cannot be None.")
         return None
     
-    encrypted_session_key = receiver_public_key.encrypt(
+    encrypted_session_key = keys["receiver_public_key"].encrypt(
         session_key,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
@@ -478,7 +551,7 @@ def handle_failed_kra(kra_index, payload, challenge_verifier):
 
                 # Decrypt the challenge verifier
                 print(f"Decrypting challenge verifier on attempt {attempt}...")
-                kra_challenge_verifier = krc_private_key.decrypt(
+                kra_challenge_verifier = keys["krc_private_key"].decrypt(
                     encrypted_kra_challenge_verifier,
                     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
                 )
@@ -542,7 +615,7 @@ def handle_kra_failure(krf_i_list, krf):
                 outer_encrypted_TTi = json.loads(outer_encrypted_TTi)
 
             encrypted_TTi = bytes.fromhex(outer_encrypted_TTi["TTi"])  # Convert hex string to bytes
-            TTi = krc_private_key.decrypt(
+            TTi = keys["krc_private_key"].decrypt(
                 encrypted_TTi,
                 padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
             )
@@ -610,7 +683,7 @@ def receive_request(client_socket):
 
         # Phase 3: Distribute KRF-i
         print("Beginning Phase 3: Distributing KRF-i.")
-        krf_i_list = distribute_krf_to_kras(krf_data, kra_public_keys)
+        krf_i_list = distribute_krf_to_kras(krf_data, keys["kra_public_keys"])
 
         # Phase 4: Assemble session key
         print("Beginning Phase 4: Assembling session key.")
@@ -662,4 +735,7 @@ def main():
         receive_request(client_socket)
 
 if __name__ == "__main__":
+    ENTITY_NAME = "krc"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
+    generate_and_store_keys(ENTITY_NAME)
+    keys = load_keys()  # Load keys and store them globally
     main()

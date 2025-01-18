@@ -26,6 +26,9 @@ RUN pip install --no-cache-dir flask \
 # Copy the current directory contents into the container at /app
 COPY . /app
 
+# Ensure the keys directory exists and is writable
+RUN mkdir -p /app/keys && chmod -R 700 /app/keys
+
 # Expose the port the app runs on
 EXPOSE 5001 5050
 

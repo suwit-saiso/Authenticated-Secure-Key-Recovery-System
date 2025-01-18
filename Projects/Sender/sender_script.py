@@ -8,7 +8,85 @@ import os
 import uuid
 import time
 
+#========================= Network Setup =======================
+RECEIVERHOST = "192.168.1.12"
+
+#========================= Session Manager =========================
+current_session = {
+    "session_id": None,
+    "session_key": None
+}
+
+#========================= Flask Server =========================
+app = Flask(__name__)
+
 #========================= Key Setup =========================
+# Define key paths
+BASE_FOLDER = os.path.dirname(os.path.abspath(__file__))  # Container's base folder
+KEYS_FOLDER = os.path.join(BASE_FOLDER, "keys")
+SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))  # Adjust relative path
+# Global variable to store keys
+keys = {}
+
+# Ensure a folder exists
+def ensure_folder_exists(folder):
+    try:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+    except Exception as e:
+        print(f"Error creating folder {folder}: {e}")
+
+# Function to generate RSA Key Pair
+def generate_rsa_key_pair():
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+    return private_key, public_key
+
+# Function to save a private key to a file
+def save_private_key(private_key, filename):
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(pem)
+
+# Function to save a public key to a file
+def save_public_key(public_key, filename):
+    pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(pem)
+
+# Main key generation function
+def generate_and_store_keys(entity_name):
+    ensure_folder_exists(KEYS_FOLDER)
+    ensure_folder_exists(SHARED_KEYS_FOLDER)
+
+    # File paths
+    private_key_path = os.path.join(KEYS_FOLDER, f"{entity_name}_private.pem")
+    public_key_path = os.path.join(KEYS_FOLDER, f"{entity_name}_public.pem")
+    shared_public_key_path = os.path.join(SHARED_KEYS_FOLDER, f"{entity_name}_public.pem")
+
+    # Generate key pair
+    private_key, public_key = generate_rsa_key_pair()
+
+    # Save keys
+    try:
+        save_private_key(private_key, private_key_path)
+        save_public_key(public_key, public_key_path)
+        save_public_key(public_key, shared_public_key_path)
+
+        print(f"Keys for {entity_name} saved successfully:")
+        print(f"  Private key -> {private_key_path}")
+        print(f"  Public key -> {public_key_path}")
+        print(f"  Public key (shared) -> {shared_public_key_path}")
+    except Exception as e:
+        print(f"Error saving keys for {entity_name}: {e}")
+
 # Load keys directly
 def load_private_key(file_path):
     with open(file_path, "rb") as key_file:
@@ -18,36 +96,41 @@ def load_public_key(file_path):
     with open(file_path, "rb") as key_file:
         return serialization.load_pem_public_key(key_file.read())
 
-# Get the directory of the current script
-script_dir = os.path.abspath(os.path.dirname(__file__))
+def load_keys():
+    # Get the directory of the current script
+    script_dir = os.path.abspath(os.path.dirname(__file__))
 
-# Paths for Sender's private and public keys (in the same level as script)
-sender_private_key_path = os.path.join(script_dir, "keys", "sender_private.pem")
-sender_public_key_path = os.path.join(script_dir, "keys", "sender_public.pem")
+    # Paths for Sender's private and public keys
+    sender_private_key_path = os.path.join(script_dir, "keys", "sender_private.pem")
+    sender_public_key_path = os.path.join(script_dir, "keys", "sender_public.pem")
 
-# Paths for Shared folder keys (parallel to the Sender folder)
-shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
-receiver_public_key_path = os.path.join(shared_keys_dir, "receiver_public.pem")
-krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
+    # Paths for Shared folder keys
+    shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
+    receiver_public_key_path = os.path.join(shared_keys_dir, "receiver_public.pem")
+    krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
 
-kra_public_key_paths = [
-    os.path.join(shared_keys_dir, f"kra{i}_public.pem") for i in range(1, 6)
-]
+    kra_public_key_paths = [
+        os.path.join(shared_keys_dir, f"kra{i}_public.pem") for i in range(1, 6)
+    ]
 
-# Load keys with error checking
-try:
-    sender_private_key = load_private_key(sender_private_key_path)
-    sender_public_key = load_public_key(sender_public_key_path)
+    # Dictionary to hold the keys
+    keys = {}
 
-    receiver_public_key = load_public_key(receiver_public_key_path)
-    krc_public_key = load_public_key(krc_public_key_path)
+    try:
+        # Load sender keys
+        keys["sender_private_key"] = load_private_key(sender_private_key_path)
+        keys["sender_public_key"] = load_public_key(sender_public_key_path)
 
-    kra_public_keys = [load_public_key(path) for path in kra_public_key_paths]
+        # Load shared keys
+        keys["receiver_public_key"] = load_public_key(receiver_public_key_path)
+        keys["krc_public_key"] = load_public_key(krc_public_key_path)
+        keys["kra_public_keys"] = [load_public_key(path) for path in kra_public_key_paths]
 
-except FileNotFoundError as e:
-    raise FileNotFoundError(f"Key file not found: {e}")
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Key file not found: {e}")
 
-RECEIVERHOST = "192.168.1.12"
+    print("Keys loaded successfully.")
+    return keys
 
 #========================= Utility Functions =========================
 # Generate session key (AES key)
@@ -120,7 +203,7 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
 
     try:
         # Generate KRF
-        krf = generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id)
+        krf = generate_krf(session_key, krc_public_key, keys["kra_public_keys"], receiver_public_key, session_id)
     except Exception as e:
         print("Error generating KRF:", e)
         raise
@@ -296,15 +379,6 @@ def send_to_receiver(data):
         print(f"Socket error: {e}")
         return f"Error: {e}".encode()
 
-#========================= Session Manager =========================
-current_session = {
-    "session_id": None,
-    "session_key": None
-}
-
-#========================= Flask Server =========================
-app = Flask(__name__)
-
 @app.route("/send_message", methods=["POST"])
 def handle_message():
     global current_session
@@ -316,7 +390,7 @@ def handle_message():
         print("Creating a Session...")
         # Perform first establishment
         session_id, session_key, encrypted_session_key, iv, encrypted_message, encrypted_krf, encrypted_aes_key, iv_aes = first_establishment(
-            plaintext, receiver_public_key, krc_public_key
+            plaintext, keys["receiver_public_key"], keys["krc_public_key"]
         )
         print("Information created successfuly.")
 
@@ -352,4 +426,7 @@ def handle_message():
     return jsonify({"response": response.decode()})
 
 if __name__ == "__main__":
+    ENTITY_NAME = "sender"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
+    generate_and_store_keys(ENTITY_NAME)
+    keys = load_keys()  # Load keys and store them globally
     app.run(host="0.0.0.0", port=5000)

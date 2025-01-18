@@ -2,10 +2,87 @@ import os
 import hashlib
 import socket
 import json
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding,rsa
 from cryptography.hazmat.primitives import hashes, serialization
 
-#========================= Setup =========================
+#=================================== Network Setup ===========================================
+# Dynamically determine KRA ID from the folder name or environment variable
+script_dir = os.path.abspath(os.path.dirname(__file__))
+KRA_ID = os.getenv("KRA_ID", os.path.basename(script_dir))  # e.g., kra1, kra2, ...
+
+# Assign LISTEN_HOST dynamically
+LISTEN_HOST = f"192.168.1.{14 + int(KRA_ID[-1]) - 1}"
+
+# Port for the KRA (defaults to 5003, or can be set per KRA using an env variable)
+LISTEN_PORT = int(os.getenv("LISTEN_PORT", 5003 + int(KRA_ID[-1]) - 1))  # Ports 5003, 5004, etc.
+
+#========================= Key Setup =========================
+# Define key paths
+BASE_FOLDER = os.path.dirname(os.path.abspath(__file__))  # Container's base folder
+KEYS_FOLDER = os.path.join(BASE_FOLDER, "keys")
+SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))  # Adjust relative path
+# Global variable to store keys
+keys = {}
+
+# Ensure a folder exists
+def ensure_folder_exists(folder):
+    try:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+    except Exception as e:
+        print(f"Error creating folder {folder}: {e}")
+
+# Function to generate RSA Key Pair
+def generate_rsa_key_pair():
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+    return private_key, public_key
+
+# Function to save a private key to a file
+def save_private_key(private_key, filename):
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(pem)
+
+# Function to save a public key to a file
+def save_public_key(public_key, filename):
+    pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(pem)
+
+# Main key generation function
+def generate_and_store_keys(entity_name):
+    ensure_folder_exists(KEYS_FOLDER)
+    ensure_folder_exists(SHARED_KEYS_FOLDER)
+
+    # File paths
+    private_key_path = os.path.join(KEYS_FOLDER, f"{entity_name}_private.pem")
+    public_key_path = os.path.join(KEYS_FOLDER, f"{entity_name}_public.pem")
+    shared_public_key_path = os.path.join(SHARED_KEYS_FOLDER, f"{entity_name}_public.pem")
+
+    # Generate key pair
+    private_key, public_key = generate_rsa_key_pair()
+
+    # Save keys
+    try:
+        save_private_key(private_key, private_key_path)
+        save_public_key(public_key, public_key_path)
+        save_public_key(public_key, shared_public_key_path)
+
+        print(f"Keys for {entity_name} saved successfully:")
+        print(f"  Private key -> {private_key_path}")
+        print(f"  Public key -> {public_key_path}")
+        print(f"  Public key (shared) -> {shared_public_key_path}")
+    except Exception as e:
+        print(f"Error saving keys for {entity_name}: {e}")
+
 # Load private key
 def load_private_key(file_path):
     with open(file_path, "rb") as key_file:
@@ -18,32 +95,34 @@ def load_public_key(file_path):
         public_key = serialization.load_pem_public_key(key_file.read())
     return public_key
 
-# Get the directory of the current script (to use as base path)
-script_dir = os.path.abspath(os.path.dirname(__file__))
+def load_keys():
+    # Get the directory of the current script (to use as base path)
+    script_dir = os.path.abspath(os.path.dirname(__file__))
 
-# Dynamically determine KRA ID from the folder name or environment variable
-KRA_ID = os.getenv("KRA_ID", os.path.basename(script_dir))  # e.g., kra1, kra2, ...
+    # Paths for private key (within the current KRA folder) and shared public key
+    private_key_path = os.path.join(script_dir, "keys", f"{KRA_ID}_private.pem")
+    shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
+    krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
 
-# Paths for private key (within the current KRA folder) and shared public key
-private_key_path = os.path.join(script_dir, "keys", f"{KRA_ID}_private.pem")
-shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
-krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
+    # Dictionary to hold the keys
+    keys = {}
 
-# Assign LISTEN_HOST dynamically
-LISTEN_HOST = f"192.168.1.{14 + int(KRA_ID[-1]) - 1}"
-# Port for the KRA (defaults to 5003, or can be set per KRA using an env variable)
-LISTEN_PORT = int(os.getenv("LISTEN_PORT", 5003 + int(KRA_ID[-1]) - 1))  # Ports 5003, 5004, etc.
+    # Load keys with error handling
+    try:
+        # Load kra keys
+        keys["kra_private_key"] = load_private_key(private_key_path)
 
-# Load keys with error handling
-try:
-    kra_private_key = load_private_key(private_key_path)
-    krc_public_key = load_public_key(krc_public_key_path)
-except FileNotFoundError as e:
-    raise FileNotFoundError(f"Key file not found: {e}")
+        # Load shared keys
+        keys["krc_public_key"] = load_public_key(krc_public_key_path)
 
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Key file not found: {e}")
+    
+    print("Keys loaded successfully.")
+    return keys
 
 def decrypt_message(encrypted_message):
-    return kra_private_key.decrypt(
+    return keys["kra_private_key"].decrypt(
         encrypted_message,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
@@ -77,7 +156,7 @@ def handle_client(client_socket):
             
             # Encrypt verifier with KRC's public key
             print("Encrypting challenge.")
-            encrypted_verifier = encrypt_message(challenge_verifier, krc_public_key)
+            encrypted_verifier = encrypt_message(challenge_verifier, keys["krc_public_key"])
             response = {
                 "type": "challenge_response",
                 "encrypted_challenge_verifier": encrypted_verifier.hex()
@@ -93,7 +172,7 @@ def handle_client(client_socket):
             
             # Re-encrypt KRF-i with KRC's public key
             print("Re-encrypt KRF-i.")
-            re_encrypted_krf_i = encrypt_message(krf_i, krc_public_key)
+            re_encrypted_krf_i = encrypt_message(krf_i, keys["krc_public_key"])
             response = {
                 "type": "krf_response",
                 "encrypted_krf_i": re_encrypted_krf_i.hex()
@@ -120,4 +199,7 @@ def main():
         handle_client(client_socket)
 
 if __name__ == "__main__":
+    ENTITY_NAME = f"{KRA_ID}"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
+    generate_and_store_keys(ENTITY_NAME)
+    keys = load_keys()  # Load keys and store them globally
     main()

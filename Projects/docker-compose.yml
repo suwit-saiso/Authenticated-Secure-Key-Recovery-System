@@ -1,31 +1,31 @@
 version: '3.8'
 
 services:
-  generate-keys:
-    image: generate-keys:lasted
-    container_name: generate-keys
-    build:
-      context: ./Generate Keys
-      dockerfile: Dockerfile.genkey
-    volumes:
-      - ./Shared/keys:/Shared/keys
-      - ./Sender/keys:/Sender/keys
-      - ./Receiver/keys:/Receiver/keys
-      - ./KRC/keys:/KRC/keys
-      - ./KRA/kra1/keys:/KRA/kra1/keys
-      - ./KRA/kra2/keys:/KRA/kra2/keys
-      - ./KRA/kra3/keys:/KRA/kra3/keys
-      - ./KRA/kra4/keys:/KRA/kra4/keys
-      - ./KRA/kra5/keys:/KRA/kra5/keys
-    command: ["python", "GenKey.py"]
-    healthcheck:
-      test: ["CMD", "python", "-c", "import os; assert os.path.exists('/Shared/keys/sender_public.pem')"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    networks:
-      app_network:
-        ipv4_address: 192.168.1.10
+  # generate-keys:
+  #   image: generate-keys:lasted
+  #   container_name: generate-keys
+  #   build:
+  #     context: ./Generate Keys
+  #     dockerfile: Dockerfile.genkey
+  #   volumes:
+  #     - ./Shared/keys:/Shared/keys
+  #     - ./Sender/keys:/Sender/keys
+  #     - ./Receiver/keys:/Receiver/keys
+  #     - ./KRC/keys:/KRC/keys
+  #     - ./KRA/kra1/keys:/KRA/kra1/keys
+  #     - ./KRA/kra2/keys:/KRA/kra2/keys
+  #     - ./KRA/kra3/keys:/KRA/kra3/keys
+  #     - ./KRA/kra4/keys:/KRA/kra4/keys
+  #     - ./KRA/kra5/keys:/KRA/kra5/keys
+  #   command: ["python", "GenKey.py"]
+  #   healthcheck:
+  #     test: ["CMD", "python", "-c", "import os; assert os.path.exists('/Shared/keys/sender_public.pem')"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
+  #   networks:
+  #     app_network:
+  #       ipv4_address: 192.168.1.10
 
   sender:
     image: sender:lasted
@@ -33,9 +33,9 @@ services:
     build:
       context: .
       dockerfile: Sender/Dockerfile.sender
-    depends_on:
-      generate-keys:
-        condition: service_completed_successfully
+    # depends_on:
+    #   generate-keys:
+    #     condition: service_completed_successfully
     ports:
       - "5000:5000"
       - "6000:6000"
@@ -52,9 +52,9 @@ services:
     build:
       context: ./Receiver
       dockerfile: Dockerfile.receiver
-    depends_on:
-      generate-keys:
-        condition: service_completed_successfully
+    # depends_on:
+    #   generate-keys:
+    #     condition: service_completed_successfully
     ports:
       - "5001:5001"
       - "5050:5050"
@@ -71,9 +71,9 @@ services:
     build:
       context: .
       dockerfile: KRC/Dockerfile.KRC
-    depends_on:
-      generate-keys:
-        condition: service_completed_successfully
+    # depends_on:
+    #   generate-keys:
+    #     condition: service_completed_successfully
     ports:
       - "5002:5002"
     volumes:
@@ -89,9 +89,9 @@ services:
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
-    depends_on:
-      generate-keys:
-        condition: service_completed_successfully
+    # depends_on:
+    #   generate-keys:
+    #     condition: service_completed_successfully
     environment:
       KRA_ID: kra1
       LISTEN_PORT: 5003
@@ -110,9 +110,9 @@ services:
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
-    depends_on:
-      generate-keys:
-        condition: service_completed_successfully
+    # depends_on:
+    #   generate-keys:
+    #     condition: service_completed_successfully
     environment:
       KRA_ID: kra2
       LISTEN_PORT: 5004
@@ -131,9 +131,9 @@ services:
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
-    depends_on:
-      generate-keys:
-        condition: service_completed_successfully
+    # depends_on:
+    #   generate-keys:
+    #     condition: service_completed_successfully
     environment:
       KRA_ID: kra3
       LISTEN_PORT: 5005
@@ -152,9 +152,9 @@ services:
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
-    depends_on:
-      generate-keys:
-        condition: service_completed_successfully
+    # depends_on:
+    #   generate-keys:
+    #     condition: service_completed_successfully
     environment:
       KRA_ID: kra4
       LISTEN_PORT: 5006
@@ -173,9 +173,9 @@ services:
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
-    depends_on:
-      generate-keys:
-        condition: service_completed_successfully
+    # depends_on:
+    #   generate-keys:
+    #     condition: service_completed_successfully
     environment:
       KRA_ID: kra5
       LISTEN_PORT: 5007

@@ -3,17 +3,95 @@ import socket
 import json
 from flask import Flask, request, jsonify
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-# from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa, padding 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
 import os
 import time
 import hashlib
-# import uuid
 
-# Initialize Flask app
+#========================= Flask Server =========================
 app = Flask(__name__)
+
+#========================= Session Manager =========================
+# Dictionary to store session IDs and corresponding session keys
+sessions = {}
+
+#========================= Network Setup =======================
+# Socket communication setup for KRC
+KRC_HOST = '192.168.1.13'  # Update with actual KRC container IP/hostname
+KRC_PORT = 5002
+
+# Socket server for sender-reciver communication to listen
+LISTEN_HOST = '192.168.1.12'
+LISTEN_PORT = 5001
+
+#========================= Key Setup =========================
+# Define key paths
+BASE_FOLDER = os.path.dirname(os.path.abspath(__file__))  # Container's base folder
+KEYS_FOLDER = os.path.join(BASE_FOLDER, "keys")
+SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))  # Adjust relative path
+# Global variable to store keys
+keys = {}
+
+# Ensure a folder exists
+def ensure_folder_exists(folder):
+    try:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+    except Exception as e:
+        print(f"Error creating folder {folder}: {e}")
+
+# Function to generate RSA Key Pair
+def generate_rsa_key_pair():
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+    return private_key, public_key
+
+# Function to save a private key to a file
+def save_private_key(private_key, filename):
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(pem)
+
+# Function to save a public key to a file
+def save_public_key(public_key, filename):
+    pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(pem)
+
+# Main key generation function
+def generate_and_store_keys(entity_name):
+    ensure_folder_exists(KEYS_FOLDER)
+    ensure_folder_exists(SHARED_KEYS_FOLDER)
+
+    # File paths
+    private_key_path = os.path.join(KEYS_FOLDER, f"{entity_name}_private.pem")
+    public_key_path = os.path.join(KEYS_FOLDER, f"{entity_name}_public.pem")
+    shared_public_key_path = os.path.join(SHARED_KEYS_FOLDER, f"{entity_name}_public.pem")
+
+    # Generate key pair
+    private_key, public_key = generate_rsa_key_pair()
+
+    # Save keys
+    try:
+        save_private_key(private_key, private_key_path)
+        save_public_key(public_key, public_key_path)
+        save_public_key(public_key, shared_public_key_path)
+
+        print(f"Keys for {entity_name} saved successfully:")
+        print(f"  Private key -> {private_key_path}")
+        print(f"  Public key -> {public_key_path}")
+        print(f"  Public key (shared) -> {shared_public_key_path}")
+    except Exception as e:
+        print(f"Error saving keys for {entity_name}: {e}")
 
 # Load keys
 def load_private_key(file_path):
@@ -26,46 +104,44 @@ def load_public_key(file_path):
         public_key = serialization.load_pem_public_key(key_file.read())
     return public_key
 
-#========================= Setup =========================
-# Get the directory of the current script
-script_dir = os.path.abspath(os.path.dirname(__file__))
+def load_keys():
+    # Get the directory of the current script
+    script_dir = os.path.abspath(os.path.dirname(__file__))
 
-# Paths for Receiver's private and public keys (in the same level as script)
-receiver_private_key_path = os.path.join(script_dir, "keys", "receiver_private.pem")
-receiver_public_key_path = os.path.join(script_dir, "keys", "receiver_public.pem")
+    # Paths for Receiver's private and public keys (in the same level as script)
+    receiver_private_key_path = os.path.join(script_dir, "keys", "receiver_private.pem")
+    receiver_public_key_path = os.path.join(script_dir, "keys", "receiver_public.pem")
 
-# Paths for Shared folder keys (parallel to the Sender folder)
-shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
-sender_public_key_path = os.path.join(shared_keys_dir, "sender_public.pem")
-krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
+    # Paths for Shared folder keys (parallel to the Sender folder)
+    shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
+    sender_public_key_path = os.path.join(shared_keys_dir, "sender_public.pem")
+    krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
 
-# Load keys with error checking
-try:
-    receiver_private_key = load_private_key(receiver_private_key_path)
-    receiver_public_key = load_public_key(receiver_public_key_path)
+    # Dictionary to hold the keys
+    keys = {}
 
-    sender_public_key = load_public_key(sender_public_key_path)
-    krc_public_key = load_public_key(krc_public_key_path)
-except FileNotFoundError as e:
-    raise FileNotFoundError(f"Key file not found: {e}")    
+    # Load keys with error checking
+    try:
+        # Load receiver keys
+        keys["receiver_private_key"] = load_private_key(receiver_private_key_path)
+        keys["receiver_public_key"] = load_public_key(receiver_public_key_path)
 
-# Dictionary to store session IDs and corresponding session keys
-sessions = {}
+        # Load shared keys
+        keys["sender_public_key"] = load_public_key(sender_public_key_path)
+        keys["krc_public_key"] = load_public_key(krc_public_key_path)
 
-# Socket communication setup for KRC
-KRC_HOST = '192.168.1.13'  # Update with actual KRC container IP/hostname
-KRC_PORT = 5002
-
-# Socket server for sender-reciver communication to listen
-LISTEN_HOST = '192.168.1.12'
-LISTEN_PORT = 5001
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"Key file not found: {e}")  
+      
+    print("Keys loaded successfully.")
+    return keys
 
 #========================= Encryption/Decryption Functions =========================
 def decrypt_session_key(encrypted_session_key):    
     try:
         print(f"Attempting to decrypt session key. Length: {len(encrypted_session_key)} bytes")
         # Decrypt the session key using receiver's private key
-        session_key = receiver_private_key.decrypt(
+        session_key = keys['receiver_private_key'].decrypt(
             encrypted_session_key,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
@@ -159,7 +235,7 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
 
         # Serialize and encrypt recovery request
         json_request = json.dumps(recovery_request)
-        encrypted_request = krc_public_key.encrypt(
+        encrypted_request = keys['krc_public_key'].encrypt(
             json_request.encode(),
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
@@ -195,7 +271,7 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         print("Request accepted, proceeding to verification.")
 
         # Proceed with verification
-        encrypted_challenge_code = encrypt_challenge_code(challenge_code, krc_public_key)
+        encrypted_challenge_code = encrypt_challenge_code(challenge_code, keys['krc_public_key'])
 
         verification_payload = {
             "encrypted_challenge_code": encrypted_challenge_code.hex()
@@ -231,13 +307,13 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
 
         # Decrypt the unfinished session key and Sr
         encrypted_unfinished_session_key = bytes.fromhex(key_parts['encrypted_unfinished_session_key'])
-        unfinished_session_key = receiver_private_key.decrypt(
+        unfinished_session_key = keys['receiver_private_key'].decrypt(
             encrypted_unfinished_session_key,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
 
         encrypted_Sr = bytes.fromhex(key_parts['Sr'])
-        Sr = receiver_private_key.decrypt(
+        Sr = keys['receiver_private_key'].decrypt(
             encrypted_Sr,
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
@@ -540,5 +616,8 @@ def manual_test():
 
 # Run Flask app and socket server concurrently
 if __name__ == '__main__':
+    ENTITY_NAME = "receiver"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
+    generate_and_store_keys(ENTITY_NAME)
+    keys = load_keys()  # Load keys and store them globally
     threading.Thread(target=start_socket_server, daemon=True).start()
     app.run(host='0.0.0.0', port=5050)

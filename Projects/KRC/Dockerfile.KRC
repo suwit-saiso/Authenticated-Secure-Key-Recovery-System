@@ -27,6 +27,9 @@ COPY ./KRC/krc_script.py /app/krc_script.py
 COPY ./KRC/keys /app/keys
 COPY ./Shared/keys /app/Shared/keys
 
+# Ensure the keys directory exists and is writable
+RUN mkdir -p /app/keys && chmod -R 700 /app/keys
+
 # Expose the port that the server will listen on
 EXPOSE 5002
 
