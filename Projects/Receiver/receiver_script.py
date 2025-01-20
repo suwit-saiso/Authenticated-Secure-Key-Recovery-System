@@ -136,6 +136,27 @@ def load_keys():
     print("Keys loaded successfully.")
     return keys
 
+def wait_for_keys(shared_keys_folder, required_keys, timeout=30, check_interval=1):
+    """
+    Waits until all required keys are available in the shared keys folder.
+
+    :param shared_keys_folder: Path to the shared keys folder.
+    :param required_keys: List of required key filenames.
+    :param timeout: Maximum time to wait (in seconds).
+    :param check_interval: Time interval (in seconds) between checks.
+    :return: True if all keys are available within the timeout, False otherwise.
+    """
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        missing_keys = [key for key in required_keys if not os.path.exists(os.path.join(shared_keys_folder, key))]
+        if not missing_keys:
+            print("All required keys are available.")
+            return True
+        print(f"Waiting for keys: {', '.join(missing_keys)}")
+        time.sleep(check_interval)
+    
+    raise TimeoutError(f"Timeout reached! Missing keys: {', '.join(missing_keys)}")
+
 #========================= Encryption/Decryption Functions =========================
 def decrypt_session_key(encrypted_session_key):    
     try:
@@ -617,7 +638,30 @@ def manual_test():
 # Run Flask app and socket server concurrently
 if __name__ == '__main__':
     ENTITY_NAME = "receiver"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
+
+    # Step 1: Generate and store the keys for this container
     generate_and_store_keys(ENTITY_NAME)
-    keys = load_keys()  # Load keys and store them globally
+    
+    # Step 2: Define the list of required keys (including this container's key and others it needs to load)
+    required_keys = [
+        "sender_public.pem",  # Sender's public key
+        "receiver_public.pem",  # Receiver's public key
+        "krc_public.pem",       # KRC's public key
+    ] + [f"kra{i}_public.pem" for i in range(1, 6)]  # KRA public keys
+
+    # Step 3: Wait for all required keys to be present in the shared folder
+    try:
+        wait_for_keys(SHARED_KEYS_FOLDER, required_keys)
+    except TimeoutError as e:
+        print(f"Error: {e}")
+        exit(1)
+    
+    # Step 4: Load keys and store them globally
+    try:
+        keys = load_keys()
+    except FileNotFoundError as e:
+        print(f"Error loading keys: {e}")
+        exit(1)
+
     threading.Thread(target=start_socket_server, daemon=True).start()
     app.run(host='0.0.0.0', port=5050)
