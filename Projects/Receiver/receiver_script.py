@@ -136,26 +136,28 @@ def load_keys():
     print("Keys loaded successfully.")
     return keys
 
-def wait_for_keys(shared_keys_folder, required_keys, timeout=30, check_interval=1):
+def wait_for_fresh_keys(folder, filenames, max_age_seconds=10, timeout=30):
     """
-    Waits until all required keys are available in the shared keys folder.
-
-    :param shared_keys_folder: Path to the shared keys folder.
-    :param required_keys: List of required key filenames.
-    :param timeout: Maximum time to wait (in seconds).
-    :param check_interval: Time interval (in seconds) between checks.
-    :return: True if all keys are available within the timeout, False otherwise.
+    Wait for all specified files to exist in the folder and ensure they are recently updated.
     """
     start_time = time.time()
-    while time.time() - start_time < timeout:
-        missing_keys = [key for key in required_keys if not os.path.exists(os.path.join(shared_keys_folder, key))]
-        if not missing_keys:
-            print("All required keys are available.")
-            return True
-        print(f"Waiting for keys: {', '.join(missing_keys)}")
-        time.sleep(check_interval)
-    
-    raise TimeoutError(f"Timeout reached! Missing keys: {', '.join(missing_keys)}")
+    while True:
+        all_fresh = True
+        for filename in filenames:
+            file_path = os.path.join(folder, filename)
+            if not os.path.exists(file_path):
+                all_fresh = False
+                break
+            modification_time = os.path.getmtime(file_path)
+            if time.time() - modification_time > max_age_seconds:
+                all_fresh = False
+                break
+        if all_fresh:
+            print("All required keys are now available and fresh.")
+            return
+        if time.time() - start_time > timeout:
+            raise TimeoutError(f"Timeout while waiting for fresh keys: {filenames}")
+        time.sleep(1)
 
 #========================= Encryption/Decryption Functions =========================
 def decrypt_session_key(encrypted_session_key):    
@@ -651,7 +653,7 @@ if __name__ == '__main__':
 
     # Step 3: Wait for all required keys to be present in the shared folder
     try:
-        wait_for_keys(SHARED_KEYS_FOLDER, required_keys)
+        wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=10, timeout=30)
     except TimeoutError as e:
         print(f"Error: {e}")
         exit(1)
