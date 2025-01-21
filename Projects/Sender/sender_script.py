@@ -535,8 +535,11 @@ if __name__ == "__main__":
         ] + [f"kra{i}_public.pem" for i in range(1, 6)]  # KRA public keys
 
         # Step 6: Wait for all required keys to be fresh in the shared folder
-        wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=10, timeout=30)
-
+        if not os.path.exists(STARTUP_MARKER_FILE):
+            wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=10, timeout=30)
+        else:
+            print(f"[{ENTITY_NAME}] Skipping fresh key wait as restart is in progress.")
+            
         # Step 7: Load keys and store them globally
         keys = load_keys()  # Load keys after synchronization
 
