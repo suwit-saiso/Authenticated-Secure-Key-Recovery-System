@@ -133,7 +133,7 @@ def load_keys():
     print("Keys loaded successfully.")
     return keys
 
-def wait_for_fresh_keys(folder, filenames, max_age_seconds=10, timeout=30):
+def wait_for_fresh_keys(folder, filenames, max_age_seconds, timeout):
     """
     Wait for all specified files to exist in the folder and ensure they are recently updated.
     """
@@ -164,28 +164,6 @@ def create_restart_trigger(folder, entity_name):
     with open(trigger_path, "w") as f:
         f.write(f"Restart trigger created by {entity_name}")
     print(f"[{entity_name}] Restart trigger created: {trigger_path}")
-
-def wait_for_no_trigger(folder, ignore_entity_name=None, timeout=30):
-    """
-    Wait until all trigger files are cleared or timeout occurs.
-    This version allows ignoring a specific container's trigger file (e.g., the container that is restarting).
-    """
-    start_time = time.time()
-    while True:
-        triggers = [f for f in os.listdir(folder) if f.endswith(".trigger")]
-        # Filter out the trigger of the container that should be ignored
-        if ignore_entity_name:
-            triggers = [t for t in triggers if not t.startswith(ignore_entity_name)]
-
-        if not triggers:
-            print("No trigger files detected. Proceeding...")
-            return  # All triggers cleared (or ignored for the restarting container)
-
-        if time.time() - start_time > timeout:
-            raise TimeoutError(f"Timeout waiting for triggers to clear: {triggers}")
-
-        print(f"Waiting for triggers to clear: {triggers}")
-        time.sleep(1)
 
 def process_trigger(folder, entity_name):
     """
@@ -518,34 +496,29 @@ if __name__ == "__main__":
                 f.write("Startup complete.\n")
             print(f"[{ENTITY_NAME}] Startup marker created. Proceeding with initial setup.")
         else:
-            # For subsequent runs, wait for other triggers to clear
-            print(f"[{ENTITY_NAME}] Subsequent startup detected. Waiting for triggers to clear.")
-            # Step 2: Wait for all other containers to clear their triggers
-            wait_for_no_trigger(SHARED_KEYS_FOLDER, ignore_entity_name=ENTITY_NAME)  # Ignore this container's trigger
+            print(f"[{ENTITY_NAME}] Restart detected. Skipping trigger and fresh key waits.")
 
-        # Step 3: Process and remove this container's trigger immediately
+        # Step 2: Process and remove this container's trigger immediately
         process_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)
 
-        # Step 4: Generate and store keys
+        # Step 3: Generate and store keys
         generate_and_store_keys(ENTITY_NAME)
 
-        # Step 5: Define required keys
+        # Step 4: Define required keys
         required_keys = [
             "sender_public.pem",  # Sender's public key
             "receiver_public.pem",  # Receiver's public key
             "krc_public.pem",       # KRC's public key
         ] + [f"kra{i}_public.pem" for i in range(1, 6)]  # KRA public keys
 
-        # Step 6: Wait for all required keys to be fresh in the shared folder
+        # Step 5: Wait for all required keys to be fresh in the shared folder
         if freshstart:
-            wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=10, timeout=30)
-        else:
-            print(f"[{ENTITY_NAME}] Skipping fresh key wait as restart is in progress.")
-
-        # Step 7: Load keys and store them globally
+            wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=120, timeout=60)
+        
+        # Step 6: Load keys and store them globally
         keys = load_keys()  # Load keys after synchronization
 
-        # Step 8: Start the container application
+        # Step 7: Start the container application
         app.run(host="0.0.0.0", port=5000)
 
     except TimeoutError as e:
