@@ -209,7 +209,7 @@ def clear_all_triggers(folder):
     for trigger in triggers:
         os.remove(os.path.join(folder, trigger))
     print("All triggers cleared.")
-    
+
 #========================= Utility Functions =========================
 # Generate session key (AES key)
 def generate_session_key():
@@ -509,7 +509,7 @@ if __name__ == "__main__":
 
     try:
         # Step 1: Wait for any existing restart triggers to clear
-        wait_for_no_trigger(SHARED_KEYS_FOLDER)
+        wait_for_no_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME, timeout=30)
 
         # Step 2: Generate and store keys
         generate_and_store_keys(ENTITY_NAME)
