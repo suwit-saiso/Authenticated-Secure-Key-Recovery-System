@@ -166,28 +166,19 @@ def create_restart_trigger(folder, entity_name):
         f.write(f"Restart trigger created by {entity_name}\n")
     print(f"[{entity_name}] Restart trigger created: {trigger_path}")
 
-def wait_for_no_trigger(folder, entity_name, timeout=30, initial_grace_period=2):
+def wait_for_no_trigger(folder, timeout=30):
     """
     Wait until all trigger files are processed or timeout is reached.
-    Skips waiting if this is the first startup.
     """
-    if not os.path.exists(STARTUP_MARKER_FILE):
-        print("Initial startup detected. Skipping trigger wait and clearing all old triggers.")
-        clear_all_triggers(folder)
-        return
-
-    # Allow a grace period before checking triggers
-    time.sleep(initial_grace_period)
     start_time = time.time()
     while True:
         triggers = [f for f in os.listdir(folder) if f.endswith(".trigger")]
         if not triggers:
-            print(f"[{entity_name}] No trigger files detected. Proceeding...")
+            print("No trigger files detected. Proceeding...")
             return
         if time.time() - start_time > timeout:
-            print(f"[{entity_name}] Timeout waiting for triggers to clear: {triggers}")
-            raise TimeoutError("Timeout waiting for triggers to clear.")
-        print(f"[{entity_name}] Waiting for triggers to clear: {triggers}")
+            raise TimeoutError(f"Timeout waiting for triggers to clear: {triggers}")
+        print(f"Waiting for triggers to clear: {triggers}")
         time.sleep(1)
 
 def process_trigger(folder, entity_name):
@@ -508,30 +499,34 @@ if __name__ == "__main__":
     create_restart_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Notify restart
 
     try:
-        # Step 1: Wait for any existing restart triggers to clear
-        wait_for_no_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME, timeout=30)
-
-        # Step 2: Generate and store keys
-        generate_and_store_keys(ENTITY_NAME)
-
-        # Step 3: Create startup marker file if it doesn't exist (only on first launch)
+        # Step 1: Check for first-time startup
         if not os.path.exists(STARTUP_MARKER_FILE):
+            print("Initial startup detected. Clearing all old triggers and skipping wait.")
+            clear_all_triggers(SHARED_KEYS_FOLDER)
+
+            # Create the startup marker
             with open(STARTUP_MARKER_FILE, "w") as f:
                 f.write("Startup complete.\n")
-            print("Startup marker file created.")
+            print("Startup marker created. Proceeding without trigger wait.")
+        else:
+            # Step 2: Wait for all other containers to clear their triggers
+            wait_for_no_trigger(SHARED_KEYS_FOLDER)
 
-        # Step 4: Define the list of required keys
+        # Step 3: Process and remove this container's trigger immediately
+        process_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)
+
+        # Step 4: Generate and store keys
+        generate_and_store_keys(ENTITY_NAME)
+
+        # Step 5: Define required keys
         required_keys = [
             "sender_public.pem",  # Sender's public key
             "receiver_public.pem",  # Receiver's public key
             "krc_public.pem",       # KRC's public key
         ] + [f"kra{i}_public.pem" for i in range(1, 6)]  # KRA public keys
 
-        # Step 5: Wait for all required keys to be fresh in the shared folder
+        # Step 6: Wait for all required keys to be fresh in the shared folder
         wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=10, timeout=30)
-
-        # Step 6: Process and clear the restart trigger
-        process_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)
 
         # Step 7: Load keys and store them globally
         keys = load_keys()  # Load keys after synchronization
