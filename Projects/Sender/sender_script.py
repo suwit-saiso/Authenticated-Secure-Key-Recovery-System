@@ -25,7 +25,6 @@ app = Flask(__name__)
 BASE_FOLDER = os.path.dirname(os.path.abspath(__file__))  # Container's base folder
 KEYS_FOLDER = os.path.join(BASE_FOLDER, "keys")
 SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))  # Adjust relative path
-STARTUP_MARKER_FILE = os.path.join(SHARED_KEYS_FOLDER, "startup_complete.marker")
 
 # Global variable to store keys
 keys = {}
@@ -196,7 +195,7 @@ def clear_all_triggers(folder):
     for trigger in triggers:
         os.remove(os.path.join(folder, trigger))
     print("All triggers cleared.")
-
+    
 #========================= Utility Functions =========================
 # Generate session key (AES key)
 def generate_session_key():
@@ -492,6 +491,7 @@ def handle_message():
 
 if __name__ == "__main__":
     ENTITY_NAME = "sender"  # Replace with the container's entity name (e.g., sender, receiver, etc.)
+    STARTUP_MARKER_FILE = os.path.join(SHARED_KEYS_FOLDER, f"{ENTITY_NAME}_startup.marker")  # Per-container marker
     create_restart_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Notify restart
 
     try:
@@ -533,5 +533,5 @@ if __name__ == "__main__":
         app.run(host="0.0.0.0", port=5000)
 
     except TimeoutError as e:
-        print(f"Error: {e}")
+        print(f"[{ENTITY_NAME}] Error: {e}")
         exit(1)

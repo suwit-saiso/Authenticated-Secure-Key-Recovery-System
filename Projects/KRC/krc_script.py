@@ -13,7 +13,6 @@ import time
 BASE_FOLDER = os.path.dirname(os.path.abspath(__file__))  # Container's base folder
 KEYS_FOLDER = os.path.join(BASE_FOLDER, "keys")
 SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))  # Adjust relative path
-STARTUP_MARKER_FILE = os.path.join(SHARED_KEYS_FOLDER, "startup_complete.marker")
 
 # Global variable to store keys
 keys = {}
@@ -188,7 +187,7 @@ def clear_all_triggers(folder):
     for trigger in triggers:
         os.remove(os.path.join(folder, trigger))
     print("All triggers cleared.")
-
+    
 #============================= Helper funtions ===================================
 def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
@@ -802,6 +801,7 @@ def main():
 
 if __name__ == "__main__":
     ENTITY_NAME = "krc"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
+    STARTUP_MARKER_FILE = os.path.join(SHARED_KEYS_FOLDER, f"{ENTITY_NAME}_startup.marker")  # Per-container marker
     create_restart_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Notify restart
     
     try:
@@ -843,5 +843,5 @@ if __name__ == "__main__":
         main()
 
     except TimeoutError as e:
-        print(f"Error: {e}")
+        print(f"[{ENTITY_NAME}] Error: {e}")
         exit(1)
