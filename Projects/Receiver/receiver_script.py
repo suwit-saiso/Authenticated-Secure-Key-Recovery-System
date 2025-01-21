@@ -31,6 +31,8 @@ LISTEN_PORT = 5001
 BASE_FOLDER = os.path.dirname(os.path.abspath(__file__))  # Container's base folder
 KEYS_FOLDER = os.path.join(BASE_FOLDER, "keys")
 SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))  # Adjust relative path
+STARTUP_MARKER_FILE = os.path.join(SHARED_KEYS_FOLDER, "startup_complete.marker")
+
 # Global variable to store keys
 keys = {}
 
@@ -166,12 +168,17 @@ def create_restart_trigger(folder, entity_name):
     trigger_path = os.path.join(folder, f"{entity_name}_restart.trigger")
     with open(trigger_path, "w") as f:
         f.write(f"Restart trigger created by {entity_name}\n")
-    print(f"Restart trigger created: {trigger_path}")
+    print(f"[{entity_name}] Restart trigger created: {trigger_path}")
 
 def wait_for_no_trigger(folder, timeout=30):
     """
     Wait until all trigger files are processed or timeout is reached.
+    Skip waiting if this is the first startup (determined by a startup marker).
     """
+    if not os.path.exists(STARTUP_MARKER_FILE):
+        print("Initial startup detected, skipping trigger wait.")
+        return
+
     start_time = time.time()
     while True:
         triggers = [f for f in os.listdir(folder) if f.endswith(".trigger")]
@@ -190,8 +197,10 @@ def process_trigger(folder, entity_name):
     trigger_path = os.path.join(folder, f"{entity_name}_restart.trigger")
     if os.path.exists(trigger_path):
         os.remove(trigger_path)
-        print(f"Processed and removed trigger: {trigger_path}")
-        
+        print(f"[{entity_name}] Processed and removed trigger: {trigger_path}")
+    else:
+        print(f"[{entity_name}] No trigger file to process.")
+
 #========================= Encryption/Decryption Functions =========================
 def decrypt_session_key(encrypted_session_key):    
     try:
@@ -676,24 +685,35 @@ if __name__ == '__main__':
     create_restart_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Notify restart
     
     try:
-        wait_for_no_trigger(SHARED_KEYS_FOLDER)  # Wait for synchronization
+        # Step 1: Wait for any existing restart triggers to clear
+        wait_for_no_trigger(SHARED_KEYS_FOLDER)
 
-        # Step 1: Generate and store the keys for this container
-        generate_and_store_keys(ENTITY_NAME)    # Generate keys
+        # Step 2: Generate and store keys
+        generate_and_store_keys(ENTITY_NAME)
 
-        # Step 2: Define the list of required keys (including this container's key and others it needs to load)
+        # Step 3: Create startup marker file if it doesn't exist (only on first launch)
+        if not os.path.exists(STARTUP_MARKER_FILE):
+            with open(STARTUP_MARKER_FILE, "w") as f:
+                f.write("Startup complete.\n")
+            print("Startup marker file created.")
+
+        # Step 4: Define the list of required keys
         required_keys = [
             "sender_public.pem",  # Sender's public key
             "receiver_public.pem",  # Receiver's public key
             "krc_public.pem",       # KRC's public key
         ] + [f"kra{i}_public.pem" for i in range(1, 6)]  # KRA public keys
-        
-        # Step 3: Wait for all required keys to be present in the shared folder
+
+        # Step 5: Wait for all required keys to be fresh in the shared folder
         wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=10, timeout=30)
-        process_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Clear the restart trigger
-        
-        # Step 4: Load keys and store them globally
+
+        # Step 6: Process and clear the restart trigger
+        process_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)
+
+        # Step 7: Load keys and store them globally
         keys = load_keys()  # Load keys after synchronization
+
+        # Step 8: Start the container application
         threading.Thread(target=start_socket_server, daemon=True).start()
         app.run(host='0.0.0.0', port=5050)
 
