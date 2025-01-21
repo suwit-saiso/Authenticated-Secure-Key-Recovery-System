@@ -807,14 +807,16 @@ if __name__ == "__main__":
     try:
         # Step 1: Check for first-time startup
         if not os.path.exists(STARTUP_MARKER_FILE):
-            print("Initial startup detected. Clearing all old triggers and skipping wait.")
+            print(f"[{ENTITY_NAME}] Initial startup detected. Clearing old triggers and skipping trigger wait.")
             clear_all_triggers(SHARED_KEYS_FOLDER)
 
-            # Create the startup marker
+            # Create a marker file to identify that startup is complete
             with open(STARTUP_MARKER_FILE, "w") as f:
                 f.write("Startup complete.\n")
-            print("Startup marker created. Proceeding without trigger wait.")
+            print(f"[{ENTITY_NAME}] Startup marker created. Proceeding with initial setup.")
         else:
+            # For subsequent runs, wait for other triggers to clear
+            print(f"[{ENTITY_NAME}] Subsequent startup detected. Waiting for triggers to clear.")
             # Step 2: Wait for all other containers to clear their triggers
             wait_for_no_trigger(SHARED_KEYS_FOLDER)
 
