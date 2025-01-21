@@ -157,37 +157,48 @@ def create_restart_trigger(folder, entity_name):
         f.write(f"Restart trigger created by {entity_name}")
     print(f"[{entity_name}] Restart trigger created: {trigger_path}")
 
-def wait_for_no_trigger(folder, timeout=30):
+def wait_for_no_trigger(folder, ignore_entity_name=None, timeout=30):
     """
-    Wait until all trigger files are cleared or a timeout occurs.
+    Wait until all trigger files are cleared or timeout occurs.
+    This version allows ignoring a specific container's trigger file (e.g., the container that is restarting).
     """
     start_time = time.time()
     while True:
         triggers = [f for f in os.listdir(folder) if f.endswith(".trigger")]
+        # Filter out the trigger of the container that should be ignored
+        if ignore_entity_name:
+            triggers = [t for t in triggers if not t.startswith(ignore_entity_name)]
+
         if not triggers:
-            return  # No triggers, safe to proceed
+            print("No trigger files detected. Proceeding...")
+            return  # All triggers cleared (or ignored for the restarting container)
+
         if time.time() - start_time > timeout:
             raise TimeoutError(f"Timeout waiting for triggers to clear: {triggers}")
+
+        print(f"Waiting for triggers to clear: {triggers}")
         time.sleep(1)
 
 def process_trigger(folder, entity_name):
     """
-    Remove this entity's restart trigger file if it exists.
+    Remove this container's restart trigger file if it exists.
     """
     trigger_path = os.path.join(folder, f"{entity_name}_restart.trigger")
     if os.path.exists(trigger_path):
         os.remove(trigger_path)
         print(f"[{entity_name}] Removed its restart trigger: {trigger_path}")
+    else:
+        print(f"[{entity_name}] No trigger to remove.")
 
 def clear_all_triggers(folder):
     """
-    Remove all trigger files from the folder.
+    Force clear all trigger files in the folder.
     """
     triggers = [f for f in os.listdir(folder) if f.endswith(".trigger")]
     for trigger in triggers:
         os.remove(os.path.join(folder, trigger))
     print("All triggers cleared.")
-    
+  
 #============================= Helper funtions ===================================
 def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
@@ -818,7 +829,7 @@ if __name__ == "__main__":
             # For subsequent runs, wait for other triggers to clear
             print(f"[{ENTITY_NAME}] Subsequent startup detected. Waiting for triggers to clear.")
             # Step 2: Wait for all other containers to clear their triggers
-            wait_for_no_trigger(SHARED_KEYS_FOLDER)
+            wait_for_no_trigger(SHARED_KEYS_FOLDER, ignore_entity_name=ENTITY_NAME)  # Ignore this container's trigger
 
         # Step 3: Process and remove this container's trigger immediately
         process_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)
