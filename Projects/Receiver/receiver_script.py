@@ -159,6 +159,39 @@ def wait_for_fresh_keys(folder, filenames, max_age_seconds=10, timeout=30):
             raise TimeoutError(f"Timeout while waiting for fresh keys: {filenames}")
         time.sleep(1)
 
+def create_restart_trigger(folder, entity_name):
+    """
+    Create a trigger file to notify other containers of a restart.
+    """
+    trigger_path = os.path.join(folder, f"{entity_name}_restart.trigger")
+    with open(trigger_path, "w") as f:
+        f.write(f"Restart trigger created by {entity_name}\n")
+    print(f"Restart trigger created: {trigger_path}")
+
+def wait_for_no_trigger(folder, timeout=30):
+    """
+    Wait until all trigger files are processed or timeout is reached.
+    """
+    start_time = time.time()
+    while True:
+        triggers = [f for f in os.listdir(folder) if f.endswith(".trigger")]
+        if not triggers:
+            print("No trigger files detected. Proceeding...")
+            return
+        if time.time() - start_time > timeout:
+            raise TimeoutError("Timeout waiting for triggers to clear.")
+        print(f"Waiting for triggers to clear: {triggers}")
+        time.sleep(1)
+
+def process_trigger(folder, entity_name):
+    """
+    Remove the current container's trigger file (if any).
+    """
+    trigger_path = os.path.join(folder, f"{entity_name}_restart.trigger")
+    if os.path.exists(trigger_path):
+        os.remove(trigger_path)
+        print(f"Processed and removed trigger: {trigger_path}")
+        
 #========================= Encryption/Decryption Functions =========================
 def decrypt_session_key(encrypted_session_key):    
     try:
@@ -640,30 +673,30 @@ def manual_test():
 # Run Flask app and socket server concurrently
 if __name__ == '__main__':
     ENTITY_NAME = "receiver"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
-
-    # Step 1: Generate and store the keys for this container
-    generate_and_store_keys(ENTITY_NAME)
+    create_restart_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Notify restart
     
-    # Step 2: Define the list of required keys (including this container's key and others it needs to load)
-    required_keys = [
-        "sender_public.pem",  # Sender's public key
-        "receiver_public.pem",  # Receiver's public key
-        "krc_public.pem",       # KRC's public key
-    ] + [f"kra{i}_public.pem" for i in range(1, 6)]  # KRA public keys
-
-    # Step 3: Wait for all required keys to be present in the shared folder
     try:
+        wait_for_no_trigger(SHARED_KEYS_FOLDER)  # Wait for synchronization
+
+        # Step 1: Generate and store the keys for this container
+        generate_and_store_keys(ENTITY_NAME)    # Generate keys
+
+        # Step 2: Define the list of required keys (including this container's key and others it needs to load)
+        required_keys = [
+            "sender_public.pem",  # Sender's public key
+            "receiver_public.pem",  # Receiver's public key
+            "krc_public.pem",       # KRC's public key
+        ] + [f"kra{i}_public.pem" for i in range(1, 6)]  # KRA public keys
+        
+        # Step 3: Wait for all required keys to be present in the shared folder
         wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=10, timeout=30)
+        process_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Clear the restart trigger
+        
+        # Step 4: Load keys and store them globally
+        keys = load_keys()  # Load keys after synchronization
+        threading.Thread(target=start_socket_server, daemon=True).start()
+        app.run(host='0.0.0.0', port=5050)
+
     except TimeoutError as e:
         print(f"Error: {e}")
         exit(1)
-    
-    # Step 4: Load keys and store them globally
-    try:
-        keys = load_keys()
-    except FileNotFoundError as e:
-        print(f"Error loading keys: {e}")
-        exit(1)
-
-    threading.Thread(target=start_socket_server, daemon=True).start()
-    app.run(host='0.0.0.0', port=5050)
