@@ -158,24 +158,28 @@ def create_restart_trigger(folder, entity_name):
         f.write(f"Restart trigger created by {entity_name}\n")
     print(f"[{entity_name}] Restart trigger created: {trigger_path}")
 
-def wait_for_no_trigger(folder, timeout=30):
+def wait_for_no_trigger(folder, entity_name, timeout=30, initial_grace_period=2):
     """
     Wait until all trigger files are processed or timeout is reached.
-    Skip waiting if this is the first startup (determined by a startup marker).
+    Skips waiting if this is the first startup.
     """
     if not os.path.exists(STARTUP_MARKER_FILE):
-        print("Initial startup detected, skipping trigger wait.")
+        print("Initial startup detected. Skipping trigger wait and clearing all old triggers.")
+        clear_all_triggers(folder)
         return
 
+    # Allow a grace period before checking triggers
+    time.sleep(initial_grace_period)
     start_time = time.time()
     while True:
         triggers = [f for f in os.listdir(folder) if f.endswith(".trigger")]
         if not triggers:
-            print("No trigger files detected. Proceeding...")
+            print(f"[{entity_name}] No trigger files detected. Proceeding...")
             return
         if time.time() - start_time > timeout:
+            print(f"[{entity_name}] Timeout waiting for triggers to clear: {triggers}")
             raise TimeoutError("Timeout waiting for triggers to clear.")
-        print(f"Waiting for triggers to clear: {triggers}")
+        print(f"[{entity_name}] Waiting for triggers to clear: {triggers}")
         time.sleep(1)
 
 def process_trigger(folder, entity_name):
@@ -189,6 +193,15 @@ def process_trigger(folder, entity_name):
     else:
         print(f"[{entity_name}] No trigger file to process.")
 
+def clear_all_triggers(folder):
+    """
+    Force clear all trigger files in the folder.
+    """
+    triggers = [f for f in os.listdir(folder) if f.endswith(".trigger")]
+    for trigger in triggers:
+        os.remove(os.path.join(folder, trigger))
+    print("All triggers cleared.")
+    
 #============================= Helper funtions ===================================
 def xor(bytes1, bytes2):
     return bytes(a ^ b for a, b in zip(bytes1, bytes2))
