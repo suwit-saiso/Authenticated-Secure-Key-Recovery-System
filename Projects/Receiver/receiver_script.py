@@ -694,13 +694,15 @@ if __name__ == '__main__':
     ENTITY_NAME = "receiver"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
     STARTUP_MARKER_FILE = os.path.join(SHARED_KEYS_FOLDER, f"{ENTITY_NAME}_startup.marker")  # Per-container marker
     create_restart_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Notify restart
-    
+    freshstart = False
+
     try:
         # Step 1: Check for first-time startup
         if not os.path.exists(STARTUP_MARKER_FILE):
             print(f"[{ENTITY_NAME}] Initial startup detected. Clearing old triggers and skipping trigger wait.")
             clear_all_triggers(SHARED_KEYS_FOLDER)
 
+            freshstart = True
             # Create a marker file to identify that startup is complete
             with open(STARTUP_MARKER_FILE, "w") as f:
                 f.write("Startup complete.\n")
@@ -725,7 +727,7 @@ if __name__ == '__main__':
         ] + [f"kra{i}_public.pem" for i in range(1, 6)]  # KRA public keys
 
         # Step 6: Wait for all required keys to be fresh in the shared folder
-        if not os.path.exists(STARTUP_MARKER_FILE):
+        if freshstart:
             wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=10, timeout=30)
         else:
             print(f"[{ENTITY_NAME}] Skipping fresh key wait as restart is in progress.")
