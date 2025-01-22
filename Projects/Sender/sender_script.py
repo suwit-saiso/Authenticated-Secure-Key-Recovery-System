@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 import uuid
 import time
+import copy
 
 #========================= Network Setup =======================
 RECEIVERHOST = "192.168.1.12"
@@ -28,6 +29,9 @@ SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))
 
 # Global variable to store keys
 keys = {}
+
+# Track the previously loaded keys
+previous_keys = {}
 
 # Ensure a folder exists
 def ensure_folder_exists(folder):
@@ -185,6 +189,21 @@ def clear_all_triggers(folder):
         os.remove(os.path.join(folder, trigger))
     print("All triggers cleared.")
    
+def have_keys_changed(new_keys):
+    """
+    Compare the newly loaded keys with the previously loaded ones.
+    """
+    global previous_keys
+
+    # Compare the new keys with the stored keys
+    for key_name, key_value in new_keys.items():
+        if key_name not in previous_keys or previous_keys[key_name] != key_value:
+            return True  # A key has changed
+
+    # Update the previous keys to the current keys for future comparison
+    previous_keys = copy.deepcopy(new_keys)
+    return False
+
 #========================= Utility Functions =========================
 # Generate session key (AES key)
 def generate_session_key():
@@ -436,12 +455,18 @@ def send_to_receiver(data):
 def handle_message():
     global current_session
     global keys  # Access the global keys variable
-    
+
     data = request.json
     plaintext = data.get("message")
 
     print("Input message: ",plaintext) 
-    if not current_session["session_id"]:
+
+    # Update keys and check if they have changed
+    new_keys = load_keys()
+    keys_have_changed = have_keys_changed(new_keys)
+
+    # If there's no active session or keys have changed, create a new session
+    if not current_session["session_id"] or keys_have_changed:
         print("Creating a Session...")
         
         # update key
