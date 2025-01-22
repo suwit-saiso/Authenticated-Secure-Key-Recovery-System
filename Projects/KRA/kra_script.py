@@ -189,6 +189,8 @@ def encrypt_message(message, public_key):
     )
 
 def handle_client(client_socket):
+    global keys  # Access the global keys variable
+    
     try:
         # Receive data
         data = client_socket.recv(4096).decode("utf-8")  # Convert bytes to string
@@ -199,6 +201,9 @@ def handle_client(client_socket):
         
         # Parse data (assumes a simple JSON protocol) JSON string into a Python dictionary
         message = json.loads(data)
+
+        # update key
+        keys = load_keys()
 
         if message["type"] == "challenge":
             print("Extract challenge code.")

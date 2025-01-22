@@ -543,6 +543,8 @@ def receive_from_sender(session_id, iv, encrypted_message):
         return {"error": f"Unexpected error: {e}"}
 
 def handle_sender_connection(conn):
+    global keys  # Access the global keys variable
+
     try:
         conn.settimeout(10)  # Set a timeout for the connection
         try:
@@ -554,6 +556,10 @@ def handle_sender_connection(conn):
             print("data received")
             # Convert data bytes to dict
             request = json.loads(data.decode("utf-8"))
+
+            # update key
+            keys = load_keys()
+
         except socket.timeout:
             print("Connection timed out.")
             conn.sendall(json.dumps({"error": "Connection timed out"}).encode())

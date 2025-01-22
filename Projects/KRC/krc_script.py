@@ -697,6 +697,8 @@ def handle_kra_failure(krf_i_list, krf):
     return krf_i_list
 
 def receive_request(client_socket):
+    global keys  # Access the global keys variable
+    
     try:
         # Phase 1: Receive data
         print("Receiving data...")
@@ -709,6 +711,9 @@ def receive_request(client_socket):
         data = json.loads(data.decode("utf-8"))
         print("Loaded data from requester.")
         
+        # update key
+        keys = load_keys()
+
         encrypted_request = bytes.fromhex(data.get("encrypted_request", ""))
         encrypted_krf = bytes.fromhex(data.get("encrypted_krf", ""))
         encrypted_AES_key = bytes.fromhex(data.get("encrypted_AES_key", ""))

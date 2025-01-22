@@ -435,12 +435,18 @@ def send_to_receiver(data):
 @app.route("/send_message", methods=["POST"])
 def handle_message():
     global current_session
+    global keys  # Access the global keys variable
+    
     data = request.json
     plaintext = data.get("message")
 
     print("Input message: ",plaintext) 
     if not current_session["session_id"]:
         print("Creating a Session...")
+        
+        # update key
+        keys = load_keys()
+        
         # Perform first establishment
         session_id, session_key, encrypted_session_key, iv, encrypted_message, encrypted_krf, encrypted_aes_key, iv_aes = first_establishment(
             plaintext, keys["receiver_public_key"], keys["krc_public_key"]
