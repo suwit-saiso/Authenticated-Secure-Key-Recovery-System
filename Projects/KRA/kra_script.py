@@ -176,13 +176,13 @@ def clear_all_triggers(folder):
     print("All triggers cleared.")
     
 #============================= Helper funtions ===================================
-def decrypt_message(encrypted_message):
+def decrypt_data(encrypted_message):
     return keys["kra_private_key"].decrypt(
         encrypted_message,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     )
 
-def encrypt_message(message, public_key):
+def encrypt_data(message, public_key):
     return public_key.encrypt(
         message,
         padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
@@ -208,7 +208,7 @@ def handle_client(client_socket):
         if message["type"] == "challenge":
             print("Extract challenge code.")
             encrypted_challenge = bytes.fromhex(message["encrypted_challenge_code"])
-            challenge_code = decrypt_message(encrypted_challenge)
+            challenge_code = decrypt_data(encrypted_challenge)
             
             # Generate challenge verifier
             print("hashing challenge code.")
@@ -216,7 +216,7 @@ def handle_client(client_socket):
             
             # Encrypt verifier with KRC's public key
             print("Encrypting challenge.")
-            encrypted_verifier = encrypt_message(challenge_verifier, keys["krc_public_key"])
+            encrypted_verifier = encrypt_data(challenge_verifier, keys["krc_public_key"])
             response = {
                 "type": "challenge_response",
                 "encrypted_challenge_verifier": encrypted_verifier.hex()
@@ -228,11 +228,11 @@ def handle_client(client_socket):
             print("Extract KRF-i.")
             encrypted_krf_i = bytes.fromhex(message["encrypted_krf_i"])
             print("Decrypt KRF-i.")
-            krf_i = decrypt_message(encrypted_krf_i)
+            krf_i = decrypt_data(encrypted_krf_i)
             
             # Re-encrypt KRF-i with KRC's public key
             print("Re-encrypt KRF-i.")
-            re_encrypted_krf_i = encrypt_message(krf_i, keys["krc_public_key"])
+            re_encrypted_krf_i = encrypt_data(krf_i, keys["krc_public_key"])
             response = {
                 "type": "krf_response",
                 "encrypted_krf_i": re_encrypted_krf_i.hex()
