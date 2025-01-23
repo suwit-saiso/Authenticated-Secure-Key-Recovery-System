@@ -1,18 +1,11 @@
-import tkinter as tk
-from tkinter import scrolledtext
-import threading
-import sys
 import os
 import hashlib
 import socket
 import json
+from cryptography.hazmat.primitives.asymmetric import padding,rsa
+from cryptography.hazmat.primitives import hashes, serialization
 import time
 import random
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.primitives import hashes, serialization
-
-# Global variable to stop the script
-stop_event = threading.Event()
 
 #=================================== Network Setup ===========================================
 # Dynamically determine KRA ID from the folder name or environment variable
@@ -30,8 +23,6 @@ LISTEN_PORT = int(os.getenv("LISTEN_PORT", 5003 + int(KRA_ID[-1]) - 1))  # Ports
 BASE_FOLDER = os.path.dirname(os.path.abspath(__file__))  # Container's base folder
 KEYS_FOLDER = os.path.join(BASE_FOLDER, "keys")
 SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))  # Adjust relative path
-ENTITY_NAME = f"{KRA_ID}"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
-STARTUP_MARKER_FILE = os.path.join(SHARED_KEYS_FOLDER, f"{ENTITY_NAME}_startup.marker")  # Per-container marker
 
 # Global variable to store keys
 keys = {}
@@ -267,129 +258,64 @@ def handle_client(client_socket):
         client_socket.close()
 
 #========================= Main =========================
-# def main():
-#     print(f"{KRA_ID} script has started executing.")
-#     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#     server_socket.bind((LISTEN_HOST, LISTEN_PORT))
-#     server_socket.listen(5)
-#     print(f"{KRA_ID} will listening on {LISTEN_HOST}:{LISTEN_PORT}")
-    
-#     while True:
-#         client_socket, _ = server_socket.accept()
-#         handle_client(client_socket)
-
-# if __name__ == "__main__":
-#     ENTITY_NAME = f"{KRA_ID}"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
-#     STARTUP_MARKER_FILE = os.path.join(SHARED_KEYS_FOLDER, f"{ENTITY_NAME}_startup.marker")  # Per-container marker
-
-#     # Introduce a random delay to avoid race conditions
-#     randomized_delay(1, 5)
-
-#     create_restart_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Notify restart
-#     freshstart = False
-
-#     try:
-#         # Step 1: Check for first-time startup
-#         if not os.path.exists(STARTUP_MARKER_FILE):
-#             print(f"[{ENTITY_NAME}] Initial startup detected. Clearing old triggers and skipping trigger wait.")
-#             clear_all_triggers(SHARED_KEYS_FOLDER)
-
-#             freshstart = True
-#             # Create a marker file to identify that startup is complete
-#             with open(STARTUP_MARKER_FILE, "w") as f:
-#                 f.write("Startup complete.\n")
-#             print(f"[{ENTITY_NAME}] Startup marker created. Proceeding with initial setup.")
-#         else:
-#             print(f"[{ENTITY_NAME}] Restart detected. Skipping trigger and fresh key waits.")
-
-#         # Step 2: Process and remove this container's trigger immediately
-#         process_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)
-
-#         # Step 3: Generate and store keys
-#         generate_and_store_keys(ENTITY_NAME)
-
-#         # Step 4: Define required keys
-#         required_keys = [
-#             "sender_public.pem",  # Sender's public key
-#             "receiver_public.pem",  # Receiver's public key
-#             "krc_public.pem",       # KRC's public key
-#         ] + [f"kra{i}_public.pem" for i in range(1, 6)]  # KRA public keys
-
-#         # Step 5: Wait for all required keys to be fresh in the shared folder
-#         if freshstart:
-#             wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=120, timeout=60)
-        
-#         # Step 6: Load keys and store them globally
-#         keys = load_keys()  # Load keys after synchronization
-
-#         # Step 7: Start the container application
-#         main()
-
-#     except TimeoutError as e:
-#         print(f"[{ENTITY_NAME}] Error: {e}")
-#         exit(1)
-
-def main_script():
+def main():
     print(f"{KRA_ID} script has started executing.")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((LISTEN_HOST, LISTEN_PORT))
     server_socket.listen(5)
     print(f"{KRA_ID} will listening on {LISTEN_HOST}:{LISTEN_PORT}")
     
-    while not stop_event.is_set():
+    while True:
         client_socket, _ = server_socket.accept()
         handle_client(client_socket)
 
-#=================================== GUI ===========================================
-class App:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("KRA Process Viewer")
-        self.root.geometry("600x400")
-        self.log_display = scrolledtext.ScrolledText(root, wrap=tk.WORD, state='disabled', height=20)
-        self.log_display.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.start_button = tk.Button(root, text="Start", command=self.start_process, width=10)
-        self.start_button.pack(side=tk.LEFT, padx=20, pady=10)
-        self.stop_button = tk.Button(root, text="Stop", command=self.stop_process, state='disabled', width=10)
-        self.stop_button.pack(side=tk.LEFT, padx=20, pady=10)
-        sys.stdout = self
-
-    def start_process(self):
-        self.start_button.config(state='disabled')
-        self.stop_button.config(state='normal')
-        stop_event.clear()
-        self.thread = threading.Thread(target=self.run_main_script)
-        self.thread.start()
-
-    def stop_process(self):
-        stop_event.set()
-        self.stop_button.config(state='disabled')
-
-    def write(self, text):
-        self.log_display.config(state='normal')
-        self.log_display.insert(tk.END, text)
-        self.log_display.see(tk.END)
-        self.log_display.config(state='disabled')
-
-    def flush(self):
-        pass
-
-    def run_main_script(self):
-        try:
-            clear_all_triggers(SHARED_KEYS_FOLDER)
-            generate_and_store_keys(KRA_ID)
-            required_keys = ["krc_public.pem"] + [f"kra{i}_public.pem" for i in range(1, 6)]
-            wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys)
-            load_keys()
-            main_script()
-        except Exception as e:
-            print(f"Error: {e}")
-        finally:
-            print("Script terminated.")
-            self.start_button.config(state='normal')
-            self.stop_button.config(state='disabled')
-
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = App(root)
-    root.mainloop()
+    ENTITY_NAME = f"{KRA_ID}"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
+    STARTUP_MARKER_FILE = os.path.join(SHARED_KEYS_FOLDER, f"{ENTITY_NAME}_startup.marker")  # Per-container marker
+
+    # Introduce a random delay to avoid race conditions
+    randomized_delay(1, 5)
+
+    create_restart_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Notify restart
+    freshstart = False
+
+    try:
+        # Step 1: Check for first-time startup
+        if not os.path.exists(STARTUP_MARKER_FILE):
+            print(f"[{ENTITY_NAME}] Initial startup detected. Clearing old triggers and skipping trigger wait.")
+            clear_all_triggers(SHARED_KEYS_FOLDER)
+
+            freshstart = True
+            # Create a marker file to identify that startup is complete
+            with open(STARTUP_MARKER_FILE, "w") as f:
+                f.write("Startup complete.\n")
+            print(f"[{ENTITY_NAME}] Startup marker created. Proceeding with initial setup.")
+        else:
+            print(f"[{ENTITY_NAME}] Restart detected. Skipping trigger and fresh key waits.")
+
+        # Step 2: Process and remove this container's trigger immediately
+        process_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)
+
+        # Step 3: Generate and store keys
+        generate_and_store_keys(ENTITY_NAME)
+
+        # Step 4: Define required keys
+        required_keys = [
+            "sender_public.pem",  # Sender's public key
+            "receiver_public.pem",  # Receiver's public key
+            "krc_public.pem",       # KRC's public key
+        ] + [f"kra{i}_public.pem" for i in range(1, 6)]  # KRA public keys
+
+        # Step 5: Wait for all required keys to be fresh in the shared folder
+        if freshstart:
+            wait_for_fresh_keys(SHARED_KEYS_FOLDER, required_keys, max_age_seconds=120, timeout=60)
+        
+        # Step 6: Load keys and store them globally
+        keys = load_keys()  # Load keys after synchronization
+
+        # Step 7: Start the container application
+        main()
+
+    except TimeoutError as e:
+        print(f"[{ENTITY_NAME}] Error: {e}")
+        exit(1)
