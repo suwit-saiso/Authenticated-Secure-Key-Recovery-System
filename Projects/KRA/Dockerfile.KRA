@@ -16,7 +16,7 @@ ARG KRA_DIR=kra1
 COPY ${KRA_DIR}/keys ./keys/
 
 # Install required Python libraries
-RUN pip install --no-cache-dir cryptography flask flask_socketio
+RUN pip install --no-cache-dir cryptography flask flask_socketio requests
 
 # Install network debugging tools
 RUN apt-get update && apt-get install -y iputils-ping \

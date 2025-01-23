@@ -40,4 +40,4 @@ if __name__ == "__main__":
     # Automatically open the web browser after a slight delay
     url = f"http://localhost:{port}"
     Timer(1, lambda: webbrowser.open(url)).start()
-    socketio.run(app, host="0.0.0.0", port=port)
+    socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
