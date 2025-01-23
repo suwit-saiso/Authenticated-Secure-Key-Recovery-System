@@ -312,10 +312,6 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
 
         # Serialize and encrypt recovery request
         json_request = json.dumps(recovery_request)
-        # encrypted_request = keys['krc_public_key'].encrypt(
-        #     json_request.encode(),
-        #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-        # )
         encrypted_request = encrypt_data(json_request.encode(),keys['krc_public_key'])
         payload = {
             "encrypted_request": encrypted_request.hex(),
@@ -384,17 +380,9 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
 
         # Decrypt the unfinished session key and Sr
         encrypted_unfinished_session_key = bytes.fromhex(key_parts['encrypted_unfinished_session_key'])
-        # unfinished_session_key = keys['receiver_private_key'].decrypt(
-        #     encrypted_unfinished_session_key,
-        #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-        # )
         unfinished_session_key = decrypt_data(encrypted_unfinished_session_key)
 
         encrypted_Sr = bytes.fromhex(key_parts['Sr'])
-        # Sr = keys['receiver_private_key'].decrypt(
-        #     encrypted_Sr,
-        #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
-        # )
         Sr = decrypt_data(encrypted_Sr)
         
         # Assemble the session key
