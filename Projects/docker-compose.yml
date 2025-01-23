@@ -28,7 +28,7 @@ services:
   #       ipv4_address: 192.168.1.10
 
   sender:
-    image: sender:lasted
+    image: sender:latest
     container_name: sender
     build:
       context: .
@@ -47,7 +47,7 @@ services:
         ipv4_address: 192.168.1.11
 
   receiver:
-    image: receiver:lasted
+    image: receiver:latest
     container_name: receiver
     build:
       context: ./Receiver
@@ -66,7 +66,7 @@ services:
         ipv4_address: 192.168.1.12
 
   krc:
-    image: krc:lasted
+    image: krc:latest
     container_name: krc
     build:
       context: .
@@ -84,14 +84,11 @@ services:
         ipv4_address: 192.168.1.13
 
   kra-1:
-    image: kra:lasted
+    image: kra:latest
     container_name: kra-1
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
-    # depends_on:
-    #   generate-keys:
-    #     condition: service_completed_successfully
     environment:
       KRA_ID: kra1
       LISTEN_PORT: 5003
@@ -105,7 +102,7 @@ services:
         ipv4_address: 192.168.1.14
 
   kra-2:
-    image: kra:lasted
+    image: kra:latest
     container_name: kra-2
     build:
       context: ./KRA
@@ -126,7 +123,7 @@ services:
         ipv4_address: 192.168.1.15
 
   kra-3:
-    image: kra:lasted
+    image: kra:latest
     container_name: kra-3
     build:
       context: ./KRA
@@ -147,7 +144,7 @@ services:
         ipv4_address: 192.168.1.16
 
   kra-4:
-    image: kra:lasted
+    image: kra:latest
     container_name: kra-4
     build:
       context: ./KRA
@@ -168,7 +165,7 @@ services:
         ipv4_address: 192.168.1.17
 
   kra-5:
-    image: kra:lasted
+    image: kra:latest
     container_name: kra-5
     build:
       context: ./KRA
