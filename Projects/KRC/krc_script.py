@@ -248,7 +248,7 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
     #     encrypted_request,
     #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     # )
-    decrypted_request = decrypt_data(encrypted_request,keys["krc_private_key"])
+    decrypted_request = decrypt_data(encrypted_request)
 
     # Decode the JSON-like structure from the request
     request = json.loads(decrypted_request.decode())
@@ -265,7 +265,7 @@ def receive_and_decrypt_request(encrypted_request, encrypted_krf, encrypted_AES_
     #     encrypted_AES_key,
     #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
     # )
-    decrypted_AES_key = decrypt_data(encrypted_AES_key,keys["krc_private_key"])
+    decrypted_AES_key = decrypt_data(encrypted_AES_key)
 
     # decrypt the KRF with AES key and iv_aes
     print("Start decrypt KRF.")
@@ -322,7 +322,7 @@ def decrypt_krf_and_validate_request(krf, request_session_id, request_timestamp)
             #     encrypted_session_info,
             #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
             # )
-            session_info_decrypted = decrypt_data(encrypted_session_info,keys["krc_private_key"])
+            session_info_decrypted = decrypt_data(encrypted_session_info)
             print("Decryption successful!")
             session_info = json.loads(session_info_decrypted.decode())
             print("Session Info:", session_info)
@@ -379,7 +379,7 @@ def client_validation(client_socket, requester_challenge_verifier):
         #     encrypted_challenge,
         #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         # )
-        decrypted_challenge = decrypt_data(encrypted_challenge,keys["krc_private_key"])
+        decrypted_challenge = decrypt_data(encrypted_challenge)
 
         print("Verifying requester with challenge code.")
         verification = verify_requester(decrypted_challenge, requester_challenge_verifier)
@@ -440,7 +440,7 @@ def distribute_krf_to_kras(krf, kra_public_keys):
             #     encrypted_kra_challenge_verifier,
             #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
             # )
-            kra_challenge_verifier = decrypt_data(encrypted_kra_challenge_verifier,keys["krc_private_key"])
+            kra_challenge_verifier = decrypt_data(encrypted_kra_challenge_verifier)
 
             # Compare challenge verifiers
             print("Comparing challenge verifier.")
@@ -480,7 +480,7 @@ def distribute_krf_to_kras(krf, kra_public_keys):
             #     re_encrypted_krf_i,
             #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
             # )
-            decrypted_krf_i = decrypt_data(re_encrypted_krf_i,keys["krc_private_key"])
+            decrypted_krf_i = decrypt_data(re_encrypted_krf_i)
             # Convert the decrypted KRF-i from bytes to JSON
             try:
                 krf_i = json.loads(decrypted_krf_i.decode())  # Parse JSON from bytes
@@ -639,7 +639,7 @@ def handle_failed_kra(kra_index, payload, challenge_verifier):
                 #     encrypted_kra_challenge_verifier,
                 #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
                 # )
-                kra_challenge_verifier = decrypt_data(encrypted_kra_challenge_verifier,keys["krc_private_key"])
+                kra_challenge_verifier = decrypt_data(encrypted_kra_challenge_verifier)
 
                 # Compare challenge verifiers
                 print(f"Comparing challenge verifier on attempt {attempt}...")
@@ -704,7 +704,7 @@ def handle_kra_failure(krf_i_list, krf):
             #     encrypted_TTi,
             #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
             # )
-            TTi = decrypt_data(encrypted_TTi,keys["krc_private_key"])
+            TTi = decrypt_data(encrypted_TTi)
 
             # Debug: Verify decrypted TT-i
             print(f"Decrypted TT-{i + 1}: {TTi.hex()}")
