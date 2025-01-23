@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives import hashes
 import os
 import time
 import hashlib
+import random
 
 #========================= Flask Server =========================
 app = Flask(__name__)
@@ -137,28 +138,28 @@ def load_keys():
     print("Keys loaded successfully.")
     return keys
 
-def wait_for_fresh_keys(folder, filenames, max_age_seconds, timeout):
+def wait_for_fresh_keys(folder, required_keys, max_age_seconds=120, timeout=60):
     """
-    Wait for all specified files to exist in the folder and ensure they are recently updated.
+    Wait for all required keys to appear in the shared folder and be fresh.
     """
     start_time = time.time()
-    while True:
+    while time.time() - start_time < timeout:
         all_fresh = True
-        for filename in filenames:
-            file_path = os.path.join(folder, filename)
-            if not os.path.exists(file_path):
+        for key in required_keys:
+            key_path = os.path.join(folder, key)
+            if not os.path.exists(key_path):
+                print(f"Missing key: {key}")
                 all_fresh = False
-                break
-            modification_time = os.path.getmtime(file_path)
-            if time.time() - modification_time > max_age_seconds:
-                all_fresh = False
-                break
+            else:
+                age = time.time() - os.path.getmtime(key_path)
+                if age > max_age_seconds:
+                    print(f"Stale key: {key} (age: {age} seconds)")
+                    all_fresh = False
         if all_fresh:
-            print("All required keys are now available and fresh.")
+            print("All keys are fresh.")
             return
-        if time.time() - start_time > timeout:
-            raise TimeoutError(f"Timeout while waiting for fresh keys: {filenames}")
-        time.sleep(1)
+        time.sleep(5)  # Wait before re-checking
+    raise TimeoutError(f"Timeout while waiting for fresh keys: {required_keys}")
 
 def create_restart_trigger(folder, entity_name):
     """
@@ -182,13 +183,27 @@ def process_trigger(folder, entity_name):
 
 def clear_all_triggers(folder):
     """
-    Force clear all trigger files in the folder.
+    Clear all restart trigger files in the shared folder. Ignore missing files.
     """
-    triggers = [f for f in os.listdir(folder) if f.endswith(".trigger")]
-    for trigger in triggers:
-        os.remove(os.path.join(folder, trigger))
+    for trigger in os.listdir(folder):
+        if trigger.endswith("_restart.trigger"):
+            try:
+                os.remove(os.path.join(folder, trigger))
+            except FileNotFoundError:
+                # Another container might have already removed the file
+                pass
     print("All triggers cleared.")
-  
+
+#============================= Helper funtions ===================================
+def randomized_delay(min_seconds=1, max_seconds=5):
+    """Introduces a random delay to avoid race conditions during startup."""
+    delay = random.uniform(min_seconds, max_seconds)
+    print(f"[{ENTITY_NAME}] Randomized delay: {delay:.2f} seconds")
+    time.sleep(delay)
+
+def xor(bytes1, bytes2):
+    return bytes(a ^ b for a, b in zip(bytes1, bytes2))
+
 #========================= Encryption/Decryption Functions =========================
 def decrypt_session_key(encrypted_session_key):    
     try:
@@ -250,9 +265,6 @@ def decrypt_plaintext(encrypted_message, session_key, iv):
     except Exception as e:
         print(f"Unexpected error during plaintext decryption: {e}")
         raise
-
-def xor(bytes1, bytes2):
-    return bytes(a ^ b for a, b in zip(bytes1, bytes2))
 
 def decrypt_data(encrypted_message):
     return keys["receiver_private_key"].decrypt(
@@ -691,6 +703,10 @@ def manual_test():
 if __name__ == '__main__':
     ENTITY_NAME = "receiver"  # Replace with the container's entity name (e.g., sender, receiver, krc, kra1, etc.)
     STARTUP_MARKER_FILE = os.path.join(SHARED_KEYS_FOLDER, f"{ENTITY_NAME}_startup.marker")  # Per-container marker
+
+    # Introduce a random delay to avoid race conditions
+    randomized_delay(1, 5)
+
     create_restart_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)  # Notify restart
     freshstart = False
 
