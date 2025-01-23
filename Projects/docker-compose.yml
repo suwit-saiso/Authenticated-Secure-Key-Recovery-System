@@ -89,9 +89,6 @@ services:
     build:
       context: ./KRA
       dockerfile: Dockerfile.KRA
-    # depends_on:
-    #   generate-keys:
-    #     condition: service_completed_successfully
     environment:
       KRA_ID: kra1
       LISTEN_PORT: 5003
