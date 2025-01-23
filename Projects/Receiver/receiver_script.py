@@ -388,14 +388,14 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         #     encrypted_unfinished_session_key,
         #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         # )
-        unfinished_session_key = decrypt_data(encrypted_unfinished_session_key,keys['receiver_private_key'])
+        unfinished_session_key = decrypt_data(encrypted_unfinished_session_key)
 
         encrypted_Sr = bytes.fromhex(key_parts['Sr'])
         # Sr = keys['receiver_private_key'].decrypt(
         #     encrypted_Sr,
         #     padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         # )
-        Sr = decrypt_data(encrypted_Sr,keys['receiver_private_key'])
+        Sr = decrypt_data(encrypted_Sr)
         
         # Assemble the session key
         session_key = xor(unfinished_session_key, Sr)
