@@ -6,6 +6,7 @@ from cryptography.hazmat.primitives.asymmetric import padding,rsa
 from cryptography.hazmat.primitives import hashes, serialization
 import time
 import random
+import requests
 
 #=================================== Network Setup ===========================================
 # Dynamically determine KRA ID from the folder name or environment variable
@@ -181,6 +182,18 @@ def clear_all_triggers(folder):
     print("All triggers cleared.")
 
 #============================= Helper funtions ===================================
+def send_log_to_gui(log_message):
+    """
+    Send log messages to the GUI application.
+    """
+    gui_host = f"http://192.168.1.{14 + int(KRA_ID[-1]) - 1}"  # Adjust for GUI container's IP
+    gui_port = 8003 + int(KRA_ID[-1]) - 1
+    gui_url = f"{gui_host}:{gui_port}/new_log"
+    try:
+        requests.post(gui_url, json={"message": log_message})
+    except Exception as e:
+        print(f"Failed to send log to GUI: {e}")
+
 def randomized_delay(min_seconds=1, max_seconds=5):
     """Introduces a random delay to avoid race conditions during startup."""
     delay = random.uniform(min_seconds, max_seconds)
@@ -260,10 +273,12 @@ def handle_client(client_socket):
 #========================= Main =========================
 def main():
     print(f"{KRA_ID} script has started executing.")
+    send_log_to_gui(f"{KRA_ID} script has started executing.")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((LISTEN_HOST, LISTEN_PORT))
     server_socket.listen(5)
     print(f"{KRA_ID} will listening on {LISTEN_HOST}:{LISTEN_PORT}")
+    send_log_to_gui(f"{KRA_ID} will listening on {LISTEN_HOST}:{LISTEN_PORT}")
     
     while True:
         client_socket, _ = server_socket.accept()

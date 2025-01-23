@@ -4,21 +4,24 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Copy generic script
-COPY kra_script.py ./kra.py
+# Copy main scripts
+COPY kra_script.py ./kra_script.py
+COPY kra_gui_script.py ./kra_gui_script.py
 
-# Copy the specific KRA folder (dynamically adjusted during the build)
-# The ARG KRA_DIR will allow dynamic selection of the correct KRA subfolder (e.g., kra1, kra2, etc.)
+# Copy HTML template
+COPY templates/ ./templates/
+
+# Copy the specific KRA folder (keys and scripts for kra1-kra5)
 ARG KRA_DIR=kra1
 COPY ${KRA_DIR}/keys ./keys/
 
 # Install required Python libraries
-RUN pip install --no-cache-dir cryptography
+RUN pip install --no-cache-dir cryptography flask flask_socketio
 
+# Install network debugging tools
 RUN apt-get update && apt-get install -y iputils-ping \
     net-tools \
     telnet \
-    xvfb \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -28,9 +31,10 @@ RUN mkdir -p /app/keys && chmod -R 700 /app/keys
 # Set default environment variables
 ENV KRA_ID=${KRA_DIR}
 ENV LISTEN_PORT=5003
+ENV GUI_PORT=8003
 
-# Expose port dynamically based on the KRA
-EXPOSE ${LISTEN_PORT}
+# Expose both KRA service and GUI service ports
+EXPOSE ${LISTEN_PORT} ${GUI_PORT}
 
-# Run the KRA script
-CMD ["python","-u", "./kra.py"]
+# Run the KRA and GUI scripts simultaneously
+CMD ["sh", "-c", "python -u ./kra_script.py & python -u ./kra_gui_script.py"]

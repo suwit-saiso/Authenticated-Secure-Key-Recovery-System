@@ -10,6 +10,7 @@ services:
     ports:
       - "5000:5000"
       - "6000:6000"
+      - "8000:8000"  # GUI port
     volumes:
       - ./Sender/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
@@ -26,6 +27,7 @@ services:
     ports:
       - "5001:5001"
       - "5050:5050"
+      - "8001:8001"  # GUI port
     volumes:
       - ./Receiver/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
@@ -41,6 +43,7 @@ services:
       dockerfile: KRC/Dockerfile.KRC
     ports:
       - "5002:5002"
+      - "8002:8002"  # GUI port
     volumes:
       - ./KRC/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
@@ -57,8 +60,10 @@ services:
     environment:
       KRA_ID: kra1
       LISTEN_PORT: 5003
+      GUI_PORT: 8003
     ports:
       - "5003:5003"
+      - "8003:8003"  # GUI port
     volumes:
       - ./KRA/kra1/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
@@ -75,8 +80,10 @@ services:
     environment:
       KRA_ID: kra2
       LISTEN_PORT: 5004
+      GUI_PORT: 8004
     ports:
       - "5004:5004"
+      - "8004:8004"
     volumes:
       - ./KRA/kra2/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
@@ -93,8 +100,10 @@ services:
     environment:
       KRA_ID: kra3
       LISTEN_PORT: 5005
+      GUI_PORT: 8005
     ports:
       - "5005:5005"
+      - "8005:8005"
     volumes:
       - ./KRA/kra3/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
@@ -111,8 +120,10 @@ services:
     environment:
       KRA_ID: kra4
       LISTEN_PORT: 5006
+      GUI_PORT: 8006
     ports:
       - "5006:5006"
+      - "8006:8006"
     volumes:
       - ./KRA/kra4/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
@@ -129,8 +140,10 @@ services:
     environment:
       KRA_ID: kra5
       LISTEN_PORT: 5007
+      GUI_PORT: 8007
     ports:
       - "5007:5007"
+      - "8007:8007"
     volumes:
       - ./KRA/kra5/keys:/app/keys
       - ./Shared/keys:/app/Shared/keys
