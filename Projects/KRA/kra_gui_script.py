@@ -1,6 +1,8 @@
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
 import os
+import webbrowser
+from threading import Timer
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -35,4 +37,7 @@ def add_log_entry(log_message):
 
 if __name__ == "__main__":
     port = int(os.getenv("GUI_PORT", 8003 + int(KRA_ID[-1]) - 1))  # Dynamic port based on KRA ID
+    # Automatically open the web browser after a slight delay
+    url = f"http://localhost:{port}"
+    Timer(1, lambda: webbrowser.open(url)).start()
     socketio.run(app, host="0.0.0.0", port=port)
