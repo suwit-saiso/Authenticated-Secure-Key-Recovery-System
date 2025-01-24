@@ -223,7 +223,7 @@ def handle_client(client_socket):
         # Receive data
         data = client_socket.recv(4096).decode("utf-8")  # Convert bytes to string
         print("Loaded data from KRC:", data)
-        send_log_to_gui("Loaded data from KRC:", data)
+        send_log_to_gui(f"Loaded data from KRC: {data}")
         if not data:
             print("No data received.")
             send_log_to_gui("No data received.")
@@ -254,12 +254,12 @@ def handle_client(client_socket):
             client_socket.send(json.dumps(response).encode('utf-8'))
             print("Challenge code verifier send.")
             send_log_to_gui("Extract challenge code.")
-            send_log_to_gui("Encrypted challenge code:",encrypted_challenge)
-            send_log_to_gui("Decrypted challenge code:",challenge_code)
+            send_log_to_gui(f"Encrypted challenge code: {encrypted_challenge}")
+            send_log_to_gui(f"Decrypted challenge code: {challenge_code}")
             send_log_to_gui("hashing challenge code.")
-            send_log_to_gui("Hashed challenge code/challenge verifier:",challenge_verifier)
+            send_log_to_gui(f"Hashed challenge code/challenge verifier:{challenge_verifier}")
             send_log_to_gui("Encrypting challenge verifier.")
-            send_log_to_gui("Encrypted challenge verifier:",encrypted_verifier)
+            send_log_to_gui(f"Encrypted challenge verifier: {encrypted_verifier}")
             send_log_to_gui("Challenge code verifier send.")
         
         elif message["type"] == "krf_retrieval":
@@ -278,11 +278,11 @@ def handle_client(client_socket):
             client_socket.send(json.dumps(response).encode('utf-8'))
             print("KRF-i send.")
             send_log_to_gui("Extract KRF-i.")
-            send_log_to_gui("Encrypted krf-i:",encrypted_krf_i)
+            send_log_to_gui(f"Encrypted krf-i: {encrypted_krf_i}")
             send_log_to_gui("Decrypt KRF-i.")
-            send_log_to_gui("Decrypted KRF-i:",krf_i)
+            send_log_to_gui(f"Decrypted KRF-i: {krf_i}")
             send_log_to_gui("Re-encrypt KRF-i.")
-            send_log_to_gui("Re-encrypted krf-i:",re_encrypted_krf_i)
+            send_log_to_gui(f"Re-encrypted krf-i: {re_encrypted_krf_i}")
             send_log_to_gui("KRF-i send.")
         
     except Exception as e:
