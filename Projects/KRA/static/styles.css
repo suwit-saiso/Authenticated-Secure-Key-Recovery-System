@@ -13,10 +13,17 @@ h1 {
     padding: 20px 0;
 }
 
-/* Table Styles */
-table {
+/* Table Container */
+.table-container {
     width: 80%;
     margin: 20px auto;
+    overflow-y: auto; /* Vertical scroll bar when needed */
+    max-height: 80vh; /* Restrict table height */
+}
+
+/* Table Styles */
+table {
+    width: 100%; /* Take full width of container */
     border-collapse: collapse;
     border: 1px solid #444; /* Subtle border for dark theme */
     background-color: #333; /* Darker background for table */
@@ -27,6 +34,8 @@ th, td {
     text-align: left;
     padding: 10px;
     border: 1px solid #444; /* Subtle borders for table cells */
+    word-wrap: break-word; /* Ensure long text wraps to the next line */
+    white-space: pre-wrap; /* Preserve formatting while wrapping */
 }
 
 th {

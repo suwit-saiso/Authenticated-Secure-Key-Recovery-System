@@ -8,31 +8,34 @@
 </head>
 <body>
     <h1>KRA Logs Viewer</h1>
-    <table>
-        <thead>
-            <tr>
-                <th>Timestamp</th>
-                <th>Message</th>
-            </tr>
-        </thead>
-        <tbody id="log-table-body">
-            <!-- Data rows will be dynamically populated via WebSocket -->
-        </tbody>
-    </table>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody id="log-table-body">
+                <!-- Data rows will be dynamically populated via WebSocket -->
+            </tbody>
+        </table>
+    </div>
 
     <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
     <script>
         const socket = io();
+        const logs = []; // Array to store logs with timestamp persistence
 
         // Add log entry to the table
-        function addLogEntry(message) {
+        function addLogEntry(message, timestamp = null) {
             const tableBody = document.getElementById("log-table-body");
             const row = document.createElement("tr");
 
             // Create timestamp cell
             const timestampCell = document.createElement("td");
-            const now = new Date();
-            timestampCell.textContent = now.toLocaleString(); // Localized timestamp
+            const logTimestamp = timestamp || new Date().toISOString();
+            timestampCell.textContent = new Date(logTimestamp).toLocaleString();
             row.appendChild(timestampCell);
 
             // Create message cell
@@ -41,11 +44,19 @@
             row.appendChild(messageCell);
 
             tableBody.appendChild(row);
+
+            // Persist the log
+            logs.push({ message, timestamp: logTimestamp });
         }
 
         // Listen for log updates from the server
         socket.on("log_update", (message) => {
             addLogEntry(message);
+        });
+
+        // Repopulate logs on page refresh
+        window.addEventListener("DOMContentLoaded", () => {
+            logs.forEach(log => addLogEntry(log.message, log.timestamp));
         });
     </script>
 </body>
