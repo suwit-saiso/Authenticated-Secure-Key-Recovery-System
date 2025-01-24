@@ -7,7 +7,8 @@ from threading import Timer
 app = Flask(__name__)
 socketio = SocketIO(app)
 
-KRA_ID = os.getenv("KRA_ID", "kra1")  # Dynamic KRA ID
+script_dir = os.path.abspath(os.path.dirname(__file__))
+KRA_ID = os.getenv("KRA_ID", os.path.basename(script_dir))  # Dynamic KRA ID
 
 # Store logs in memory for simplicity
 logs = []
@@ -24,16 +25,16 @@ def handle_connect():
 
 @socketio.on("new_log")
 def handle_new_log(data):
-    logs.append(data)
+    logs.append(data)  # Backend stores only the raw message
     socketio.emit("log_update", data)
 
 def add_log_entry(log_message):
     """
     Add a log entry and broadcast it to connected clients.
+    Only the raw message is stored and sent to the frontend.
     """
-    log_entry = {"message": log_message}
-    logs.append(log_entry)
-    socketio.emit("log_update", log_entry)
+    logs.append(log_message)
+    socketio.emit("log_update", log_message)
 
 if __name__ == "__main__":
     port = int(os.getenv("GUI_PORT", 8003 + int(KRA_ID[-1]) - 1))  # Dynamic port based on KRA ID

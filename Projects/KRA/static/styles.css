@@ -1,39 +1,43 @@
+/* General Styles */
 body {
     font-family: Arial, sans-serif;
-    background-color: #f4f4f9;
+    background-color: #2d2d2d; /* Dark theme background */
+    color: #f4f4f4; /* Light text for better readability */
     margin: 0;
     padding: 0;
 }
 
 h1 {
-    color: #333;
+    color: #f4f4f4; /* Light color for dark background */
     text-align: center;
     padding: 20px 0;
 }
 
+/* Table Styles */
 table {
     width: 80%;
     margin: 20px auto;
     border-collapse: collapse;
-    border: 1px solid #ddd;
-    background-color: #fff;
+    border: 1px solid #444; /* Subtle border for dark theme */
+    background-color: #333; /* Darker background for table */
+    color: #f4f4f4; /* Light text color */
 }
 
 th, td {
     text-align: left;
     padding: 10px;
-    border: 1px solid #ddd;
+    border: 1px solid #444; /* Subtle borders for table cells */
 }
 
 th {
-    background-color: #007bff;
-    color: white;
+    background-color: #ff7f0e; /* Orange color for table headers */
+    color: #2d2d2d; /* Dark text color for contrast */
 }
 
 tr:nth-child(even) {
-    background-color: #f9f9f9;
+    background-color: #3d3d3d; /* Slightly lighter row for even rows */
 }
 
 tr:hover {
-    background-color: #f1f1f1;
+    background-color: #444; /* Highlight color for hover */
 }

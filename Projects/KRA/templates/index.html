@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KRA GUI</title>
+    <title>KRA Logs Viewer</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
@@ -12,15 +12,41 @@
         <thead>
             <tr>
                 <th>Timestamp</th>
-                <th>Received Data</th>
-                <th>Decrypted Data</th>
-                <th>Encrypted Data</th>
-                <th>Sent Data</th>
+                <th>Message</th>
             </tr>
         </thead>
         <tbody id="log-table-body">
             <!-- Data rows will be dynamically populated via WebSocket -->
         </tbody>
     </table>
+
+    <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+
+        // Add log entry to the table
+        function addLogEntry(message) {
+            const tableBody = document.getElementById("log-table-body");
+            const row = document.createElement("tr");
+
+            // Create timestamp cell
+            const timestampCell = document.createElement("td");
+            const now = new Date();
+            timestampCell.textContent = now.toLocaleString(); // Localized timestamp
+            row.appendChild(timestampCell);
+
+            // Create message cell
+            const messageCell = document.createElement("td");
+            messageCell.textContent = message;
+            row.appendChild(messageCell);
+
+            tableBody.appendChild(row);
+        }
+
+        // Listen for log updates from the server
+        socket.on("log_update", (message) => {
+            addLogEntry(message);
+        });
+    </script>
 </body>
 </html>
