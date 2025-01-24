@@ -409,6 +409,7 @@ def distribute_krf_to_kras(krf, kra_public_keys):
 
             # Wait for the challenge verifier from KRA-i
             kra_response = receive_from_kra(i,connection1)
+            print("!!!!!!!!DEBUG!!!!!!!!!!!!!!!",kra_response)
             print("Extracting challenge verifier.")
             if kra_response["type"] != "challenge_response":
                 raise ValueError(f"Unexpected response type from KRA-{i}: {kra_response.get('type')}")         
