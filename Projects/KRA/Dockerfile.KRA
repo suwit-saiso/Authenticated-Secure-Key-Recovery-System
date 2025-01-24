@@ -11,6 +11,9 @@ COPY kra_gui_script.py ./kra_gui_script.py
 # Copy HTML template
 COPY templates/ ./templates/
 
+# Copy css static
+COPY static/ ./static/
+
 # Copy the specific KRA folder (keys and scripts for kra1-kra5)
 ARG KRA_DIR=kra1
 COPY ${KRA_DIR}/keys ./keys/
