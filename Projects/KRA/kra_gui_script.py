@@ -46,6 +46,22 @@ def handle_new_log(data):
     logs.append(log_message)  # Store the raw log message
     socketio.emit("log_update", log_message)  # Broadcast to all clients
 
+@app.route('/new_log', methods=['POST'])
+def new_log():
+    """
+    API endpoint to receive a new log message via an HTTP POST request.
+    Expects a JSON payload with a "message" key.
+    """
+    data = request.json
+    if data and 'message' in data:
+        log_message = data['message']
+        logs.append(log_message)  # Add the log to the in-memory store
+        socketio.emit('log_update', log_message)  # Broadcast to WebSocket clients
+        return jsonify({'status': 'success'}), 200
+    
+    # Return an error response for invalid payloads
+    return jsonify({'status': 'error', 'message': 'Invalid payload'}), 400
+
 def add_log_entry(log_message):
     """
     Add a log entry from the backend and broadcast it to connected clients.
