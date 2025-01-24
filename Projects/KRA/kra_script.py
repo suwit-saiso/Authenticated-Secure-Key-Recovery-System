@@ -35,6 +35,7 @@ def ensure_folder_exists(folder):
             os.makedirs(folder)
     except Exception as e:
         print(f"Error creating folder {folder}: {e}")
+        send_log_to_gui(f"Error creating folder {folder}: {e}")
 
 # Function to generate RSA Key Pair
 def generate_rsa_key_pair():
@@ -81,11 +82,13 @@ def generate_and_store_keys(entity_name):
         save_public_key(public_key, shared_public_key_path)
 
         print(f"Keys for {entity_name} saved successfully:")
+        send_log_to_gui(f"Keys for {entity_name} saved successfully:")
         print(f"  Private key -> {private_key_path}")
         print(f"  Public key -> {public_key_path}")
         print(f"  Public key (shared) -> {shared_public_key_path}")
     except Exception as e:
         print(f"Error saving keys for {entity_name}: {e}")
+        send_log_to_gui(f"Error saving keys for {entity_name}: {e}")
 
 # Load private key
 def load_private_key(file_path):
@@ -144,6 +147,7 @@ def wait_for_fresh_keys(folder, required_keys, max_age_seconds=120, timeout=60):
                     all_fresh = False
         if all_fresh:
             print("All keys are fresh.")
+            send_log_to_gui("All keys are fresh.")
             return
         time.sleep(5)  # Wait before re-checking
     raise TimeoutError(f"Timeout while waiting for fresh keys: {required_keys}")
@@ -219,8 +223,10 @@ def handle_client(client_socket):
         # Receive data
         data = client_socket.recv(4096).decode("utf-8")  # Convert bytes to string
         print("Loaded data from KRC:", data)
+        send_log_to_gui("Loaded data from KRC:", data)
         if not data:
             print("No data received.")
+            send_log_to_gui("No data received.")
             return
         
         # Parse data (assumes a simple JSON protocol) JSON string into a Python dictionary
@@ -231,38 +237,53 @@ def handle_client(client_socket):
 
         if message["type"] == "challenge":
             print("Extract challenge code.")
+            send_log_to_gui("Extract challenge code.")
             encrypted_challenge = bytes.fromhex(message["encrypted_challenge_code"])
             challenge_code = decrypt_data(encrypted_challenge)
-            
+            send_log_to_gui("Encrypted challenge code:",encrypted_challenge)
+            send_log_to_gui("Decrypted challenge code:",challenge_code)
+
             # Generate challenge verifier
             print("hashing challenge code.")
+            send_log_to_gui("hashing challenge code.")
             challenge_verifier = hashlib.sha256(challenge_code).digest()
-            
+            send_log_to_gui("Hashed challenge code/challenge verifier:",challenge_verifier)
+
             # Encrypt verifier with KRC's public key
             print("Encrypting challenge.")
+            send_log_to_gui("Encrypting challenge.")
             encrypted_verifier = encrypt_data(challenge_verifier, keys["krc_public_key"])
             response = {
                 "type": "challenge_response",
                 "encrypted_challenge_verifier": encrypted_verifier.hex()
             }
+            send_log_to_gui("Encrypted challenge verifier:",encrypted_verifier)
             client_socket.send(json.dumps(response).encode('utf-8'))
             print("Challenge code verifier send.")
+            send_log_to_gui("Challenge code verifier send.")
         
         elif message["type"] == "krf_retrieval":
             print("Extract KRF-i.")
+            send_log_to_gui("Extract KRF-i.")
             encrypted_krf_i = bytes.fromhex(message["encrypted_krf_i"])
+            send_log_to_gui("Encrypted krf-i:",encrypted_krf_i)
             print("Decrypt KRF-i.")
+            send_log_to_gui("Decrypt KRF-i.")
             krf_i = decrypt_data(encrypted_krf_i)
-            
+            send_log_to_gui("Decrypted KRF-i:",krf_i)
+
             # Re-encrypt KRF-i with KRC's public key
             print("Re-encrypt KRF-i.")
+            send_log_to_gui("Re-encrypt KRF-i.")
             re_encrypted_krf_i = encrypt_data(krf_i, keys["krc_public_key"])
             response = {
                 "type": "krf_response",
                 "encrypted_krf_i": re_encrypted_krf_i.hex()
             }
+            send_log_to_gui("Re-encrypted krf-i:",re_encrypted_krf_i)
             client_socket.send(json.dumps(response).encode('utf-8'))
             print("KRF-i send.")
+            send_log_to_gui("KRF-i send.")
         
     except Exception as e:
         error_response = {"status": "error", "message": str(e)}
@@ -298,6 +319,7 @@ if __name__ == "__main__":
         # Step 1: Check for first-time startup
         if not os.path.exists(STARTUP_MARKER_FILE):
             print(f"[{ENTITY_NAME}] Initial startup detected. Clearing old triggers and skipping trigger wait.")
+            send_log_to_gui(f"[{ENTITY_NAME}] Initial startup detected. Clearing old triggers and skipping trigger wait.")
             clear_all_triggers(SHARED_KEYS_FOLDER)
 
             freshstart = True
@@ -305,8 +327,10 @@ if __name__ == "__main__":
             with open(STARTUP_MARKER_FILE, "w") as f:
                 f.write("Startup complete.\n")
             print(f"[{ENTITY_NAME}] Startup marker created. Proceeding with initial setup.")
+            send_log_to_gui(f"[{ENTITY_NAME}] Startup marker created. Proceeding with initial setup.")
         else:
             print(f"[{ENTITY_NAME}] Restart detected. Skipping trigger and fresh key waits.")
+            send_log_to_gui(f"[{ENTITY_NAME}] Restart detected. Skipping trigger and fresh key waits.")
 
         # Step 2: Process and remove this container's trigger immediately
         process_trigger(SHARED_KEYS_FOLDER, ENTITY_NAME)
