@@ -56,8 +56,9 @@ def send_message_to_sender():
         return jsonify({"status": "error", "message": "Receiver and message are required"}), 400
 
     try:
-        # Forward data to sender_script.py
-        payload = {"message": message}
+        # Forward data to sender_script.py 
+        payload = {"message": message,
+                   "receiver":receiver}
         response = requests.post(SENDER_SCRIPT_URL, json=payload)
         
         if response.status_code == 200:
