@@ -512,6 +512,9 @@ def handle_message():
 
     data = request.json
     plaintext = data.get("message")
+    receiveraddr = data.get("receiver", None)
+    if receiveraddr:
+        send_log_to_gui(f"Address for receiver: {receiveraddr} received.")
 
     print("Input message: ",plaintext) 
     send_log_to_gui(f"Input message: {plaintext}")
