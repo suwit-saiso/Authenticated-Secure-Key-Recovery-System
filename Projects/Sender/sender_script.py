@@ -435,7 +435,8 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
         try:
             # Encrypt KRF-i with the KRA's public key
             krf[f"KRF-{i}"] = encrypt_data(json.dumps(krf_i).encode(),kra_key).hex()
-            send_log_to_gui(f"Encrypted KRF-{i}: {krf[f"KRF-{i}"]}")
+            krfi = krf[f"KRF-{i}"]
+            send_log_to_gui(f"Encrypted KRF-{i}: {krfi}")
         except Exception as e:
             print(f"Error encrypting KRF-{i}:", e)
             send_log_to_gui(f"Error encrypting KRF-{i}: {e}")

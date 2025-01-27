@@ -25,19 +25,14 @@ RUN pip install --no-cache-dir \
     requests
 
 # Copy application files into the container
-COPY ./KRC /app/KRC/
-COPY ./Shared/keys /app/Shared/keys
+COPY ./KRC /app/
 
 # Ensure the keys directory exists and set proper permissions
-RUN mkdir -p /app/KRC/keys && chmod -R 700 /app/KRC/keys /app/Shared/keys
-
-# Set environment variables
-ENV FLASK_ENV=development
-ENV PYTHONUNBUFFERED=1
+RUN mkdir -p /app/keys && chmod -R 700 /app/keys 
 
 # Expose application ports
 # 5002 for the main script, 8002 for the GUI script
 EXPOSE 5002 8002 
 
 # Command to run both scripts concurrently
-CMD ["sh", "-c", "python -u /app/KRC/krc_script.py & python -u /app/KRC/krc_gui_script.py && wait"]
+CMD ["sh", "-c", "python -u krc_script.py & python -u krc_gui_script.py && wait"]

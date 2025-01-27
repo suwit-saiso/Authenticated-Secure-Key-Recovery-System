@@ -362,7 +362,7 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         krc_response = receive_response_from_krc(connection)
         if "error" in krc_response:
             print("Error received from KRC:", krc_response["error"])
-            send_log_to_gui(f"Error received from KRC: {krc_response["error"]}")
+            send_log_to_gui(f"Error received from KRC: {krc_response}")
             return krc_response["error"]
 
         # Validate response structure
