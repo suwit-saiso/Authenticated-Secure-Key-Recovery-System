@@ -23,7 +23,7 @@ services:
     container_name: receiver
     build:
       context: ./Receiver
-      dockerfile: Dockerfile.receiver
+      dockerfile: ./Dockerfile.receiver
     ports:
       - "5001:5001"
       - "5050:5050"
