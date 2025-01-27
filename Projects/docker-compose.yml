@@ -22,8 +22,8 @@ services:
     image: receiver:latest
     container_name: receiver
     build:
-      context: .
-      dockerfile: ./Receiver/Dockerfile.receiver
+      context: ./Receiver
+      dockerfile: ./Dockerfile.receiver
     ports:
       - "5001:5001"
       - "5050:5050"
