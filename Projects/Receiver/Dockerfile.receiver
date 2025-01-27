@@ -1,11 +1,11 @@
-# Use an official Python runtime as a parent image
+# Use an official Python base image
 FROM python:3.11-slim
 
-# Set the working directory inside the container
+# Set working directory
 WORKDIR /app
 
-# Install system dependencies (e.g., for cryptography and other packages)
-RUN apt-get update && apt-get install -y \
+# Install system dependencies and clean cache
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libssl-dev \
     libffi-dev \
@@ -13,37 +13,24 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     net-tools \
     telnet \
-    python-dev-is-python3 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    python3-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies manually
-RUN pip install --no-cache-dir flask \
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    flask \
     cryptography \
     flask_socketio \
     requests
 
-# Copy the current directory contents into the container at /app
-COPY ./Receiver/keys /app/keys
-
-# Copy main scripts
-COPY ./Receiver/receiver_script.py /app/receiver_script.py
-COPY ./Receiver/receiver_gui_script.py /app/receiver_gui_script.py
-
-# Copy HTML template
-COPY ./Receiver/templates/ /app/templates/
-
-# Copy css static
-COPY ./Receiver/static/ /app/static/
+# Copy application files
+COPY ./Receiver /app/
 
 # Ensure the keys directory exists and is writable
 RUN mkdir -p /app/keys && chmod -R 700 /app/keys
 
-# Expose the port the app runs on
+# Expose ports
 EXPOSE 5001 5050 8001
 
-# Set environment variables (if needed)
-ENV FLASK_ENV=development
-
-# Command to run the application
-CMD ["sh", "-c", "python -u ./receiver_script.py & python -u ./receiver_gui_script.py"]
+# Command to run the receiver and GUI scripts
+CMD ["sh", "-c", "python -u receiver_script.py & python -u receiver_gui_script.py && wait"]
