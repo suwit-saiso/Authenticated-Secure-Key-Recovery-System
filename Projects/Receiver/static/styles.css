@@ -34,6 +34,15 @@ table {
     table-layout: fixed; /* Fixed layout for consistent column sizes */
 }
 
+/* Sticky Table Header */
+thead {
+    position: sticky; /* Make the header sticky */
+    top: 0; /* Stick to the top of the container */
+    z-index: 1; /* Ensure header stays above content */
+    background-color: #ff7f0e; /* Orange color for table headers */
+}
+
+/* Table Cells */
 th, td {
     text-align: left;
     padding: 10px;
@@ -43,8 +52,14 @@ th, td {
     overflow-wrap: break-word; /* Ensure proper word breaking */
 }
 
+/* Adjust Timestamp Column */
+th:first-child, td:first-child {
+    width: 25%; /* Set fixed width for the timestamp column */
+    max-width: 200px; /* Optional: Add a maximum width */
+    text-align: left; /* Ensure proper alignment */
+}
+
 th {
-    background-color: #ff7f0e; /* Orange color for table headers */
     color: #2d2d2d; /* Dark text color for contrast */
     font-weight: bold;
 }
@@ -74,4 +89,30 @@ td {
 
 .table-container::-webkit-scrollbar-thumb:hover {
     background-color: #777;
+}
+
+/* Recovery Button Styling */
+.recovery-button {
+    position: fixed;
+    bottom: 20px; /* Position from the bottom */
+    right: 20px; /* Position from the right */
+    padding: 10px 20px;
+    background-color: #ff7f0e; /* Orange color to match table headers */
+    color: #fff; /* Light text color for contrast */
+    border: none;
+    border-radius: 8px; /* Rounded corners */
+    font-size: 16px; /* Larger font for visibility */
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Subtle shadow for depth */
+    transition: background-color 0.3s ease; /* Smooth hover transition */
+}
+
+.recovery-button:hover {
+    background-color: #ff9a42; /* Lighter orange on hover */
+}
+
+/* Adjust button text alignment and layout for accessibility */
+.recovery-button:focus {
+    outline: none; /* Remove default outline */
+    box-shadow: 0 0 0 2px #ff9a42; /* Add custom focus outline for accessibility */
 }

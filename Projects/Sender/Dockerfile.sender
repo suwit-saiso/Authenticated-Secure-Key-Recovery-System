@@ -28,6 +28,8 @@ COPY ./Sender /app/
 # Ensure the keys directory exists and is writable
 RUN mkdir -p /app/keys && chmod -R 700 /app/keys
 
+ENV SENDER_SCRIPT_URL="http://localhost:5000/send_message"
+
 # Expose ports
 EXPOSE 5000 6000 8000
 

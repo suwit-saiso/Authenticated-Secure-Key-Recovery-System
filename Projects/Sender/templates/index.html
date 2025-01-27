@@ -8,6 +8,26 @@
 </head>
 <body>
     <h1>Sender Logs Viewer</h1>
+
+    <!-- New Section for Sending Messages -->
+    <div class="message-form">
+        <h2>Send a Message</h2>
+        <form id="message-form">
+            <label for="receiver">Receiver Address:</label>
+            <select id="receiver" name="receiver" required>
+                <option value="" disabled selected>Select a receiver</option>
+                <option value="receiver1">Receiver 1</option>
+                <option value="receiver2">Receiver 2</option>
+                <option value="receiver3">Receiver 3</option>
+            </select>
+
+            <label for="message">Message:</label>
+            <textarea id="message" name="message" rows="4" required></textarea>
+
+            <button type="submit">Send</button>
+        </form>
+    </div>
+
     <div class="table-container">
         <table>
             <thead>
@@ -31,16 +51,14 @@
             const tableBody = document.getElementById("log-table-body");
             const row = document.createElement("tr");
 
-            // Create timestamp cell
             const timestampCell = document.createElement("td");
             const logTimestamp = timestamp ? new Date(timestamp) : new Date();
             timestampCell.textContent = logTimestamp.toLocaleString();
             row.appendChild(timestampCell);
 
-            // Create message cell
             const messageCell = document.createElement("td");
             messageCell.textContent = message;
-            messageCell.style.whiteSpace = "normal"; // Ensure text wraps
+            messageCell.style.whiteSpace = "normal";
             row.appendChild(messageCell);
 
             tableBody.appendChild(row);
@@ -49,9 +67,36 @@
         // Listen for log updates from the server
         socket.on("log_update", (log) => {
             const { message, timestamp } = typeof log === "string" 
-                ? { message: log, timestamp: null } // Handle simple log format
-                : log; // Handle structured log format
+                ? { message: log, timestamp: null }
+                : log;
             addLogEntry(message, timestamp);
+        });
+
+        // Handle form submission
+        document.getElementById("message-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const receiver = document.getElementById("receiver").value;
+            const message = document.getElementById("message").value;
+
+            try {
+                const response = await fetch("/send_message_to_sender", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ receiver, message }),
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    addLogEntry(`Message sent to ${receiver}: ${message}`);
+                } else {
+                    addLogEntry(`Error: ${result.error}`);
+                }
+            } catch (error) {
+                addLogEntry(`Error: ${error.message}`);
+            }
         });
     </script>
 </body>

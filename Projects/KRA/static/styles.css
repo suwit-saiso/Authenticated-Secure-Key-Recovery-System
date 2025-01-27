@@ -34,6 +34,15 @@ table {
     table-layout: fixed; /* Fixed layout for consistent column sizes */
 }
 
+/* Sticky Table Header */
+thead {
+    position: sticky; /* Make the header sticky */
+    top: 0; /* Stick to the top of the container */
+    z-index: 1; /* Ensure header stays above content */
+    background-color: #ff7f0e; /* Orange color for table headers */
+}
+
+/* Table Cells */
 th, td {
     text-align: left;
     padding: 10px;
@@ -43,8 +52,14 @@ th, td {
     overflow-wrap: break-word; /* Ensure proper word breaking */
 }
 
+/* Adjust Timestamp Column */
+th:first-child, td:first-child {
+    width: 25%; /* Set fixed width for the timestamp column */
+    max-width: 200px; /* Optional: Add a maximum width */
+    text-align: left; /* Ensure proper alignment */
+}
+
 th {
-    background-color: #ff7f0e; /* Orange color for table headers */
     color: #2d2d2d; /* Dark text color for contrast */
     font-weight: bold;
 }

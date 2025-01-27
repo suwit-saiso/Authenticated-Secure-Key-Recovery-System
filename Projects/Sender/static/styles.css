@@ -1,68 +1,78 @@
 /* General Styles */
 body {
     font-family: Arial, sans-serif;
-    background-color: #2d2d2d; /* Dark theme background */
-    color: #f4f4f4; /* Light text for better readability */
+    background-color: #2d2d2d;
+    color: #f4f4f4;
     margin: 0;
     padding: 0;
 }
 
 h1 {
-    color: #f4f4f4; /* Light color for dark background */
     text-align: center;
+    color: #f4f4f4;
     padding: 20px 0;
 }
 
 /* Table Container */
 .table-container {
+    position: relative;
     width: 80%;
     margin: 20px auto;
-    overflow-y: auto; /* Vertical scroll bar when needed */
-    max-height: 80vh; /* Restrict table height */
-    border: 1px solid #444; /* Add border to container */
-    border-radius: 8px; /* Slight rounding for aesthetics */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); /* Subtle shadow for depth */
+    overflow-y: auto;
+    max-height: 80vh;
+    border: 1px solid #444;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
 }
 
-/* Table Styles */
+/* Table Styling */
 table {
-    width: 100%; /* Take full width of container */
+    width: 100%;
     border-collapse: collapse;
-    border-spacing: 0; /* No extra space between cells */
-    background-color: #333; /* Darker background for table */
-    color: #f4f4f4; /* Light text color */
-    table-layout: fixed; /* Fixed layout for consistent column sizes */
+    background-color: #333;
+    color: #f4f4f4;
+    table-layout: fixed;
+}
+
+thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #ff7f0e;
 }
 
 th, td {
-    text-align: left;
     padding: 10px;
-    border: 1px solid #444; /* Subtle borders for table cells */
-    word-wrap: break-word; /* Ensure long text wraps to the next line */
-    white-space: pre-wrap; /* Preserve formatting while wrapping */
-    overflow-wrap: break-word; /* Ensure proper word breaking */
+    border: 1px solid #444;
+    text-align: left;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 th {
-    background-color: #ff7f0e; /* Orange color for table headers */
-    color: #2d2d2d; /* Dark text color for contrast */
+    color: #2d2d2d;
     font-weight: bold;
 }
 
-tr:nth-child(even) {
-    background-color: #3d3d3d; /* Slightly lighter row for even rows */
+th:first-child, td:first-child {
+    width: 25%;
+    max-width: 200px;
 }
 
-tr:hover {
-    background-color: #444; /* Highlight color for hover */
+tbody tr:nth-child(even) {
+    background-color: #3d3d3d;
 }
 
-/* Ensure long messages do not break layout */
-td {
-    vertical-align: top; /* Align content to the top of the cell */
+tbody tr:hover {
+    background-color: #444;
 }
 
-/* Scrollbar Styling (Optional) */
+tbody tr:focus {
+    background-color: #555;
+    outline: 2px solid #ff7f0e;
+}
+
+/* Scrollbar Styling */
 .table-container::-webkit-scrollbar {
     width: 8px;
 }
@@ -74,4 +84,61 @@ td {
 
 .table-container::-webkit-scrollbar-thumb:hover {
     background-color: #777;
+}
+
+/* Message Form */
+.message-form {
+    width: 80%;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #333;
+    border: 1px solid #444;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.message-form h2 {
+    color: #f4f4f4;
+    margin-bottom: 10px;
+}
+
+.message-form label {
+    display: block;
+    margin-top: 10px;
+    color: #f4f4f4;
+}
+
+.message-form input, .message-form select, .message-form textarea, .message-form button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    margin-bottom: 15px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background-color: #444;
+    color: #f4f4f4;
+    font-size: 16px;
+}
+
+.message-form button {
+    background-color: #ff7f0e;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.message-form button:hover {
+    background-color: #ff9a42;
+}
+
+/* Responsive Table */
+@media (max-width: 768px) {
+    .table-container {
+        width: 100%;
+        max-height: 60vh;
+    }
+
+    th:first-child, td:first-child {
+        width: 35%; /* Adjust for smaller screens */
+    }
 }

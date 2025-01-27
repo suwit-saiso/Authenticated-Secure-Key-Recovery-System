@@ -5,6 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Receiver Logs Viewer</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        /* Position the button in the bottom-right corner */
+        .recovery-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #ff7f0e;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: background-color 0.3s ease;
+        }
+
+        .recovery-button:hover {
+            background-color: #ff9a42;
+        }
+    </style>
 </head>
 <body>
     <h1>Receiver Logs Viewer</h1>
@@ -21,6 +42,9 @@
             </tbody>
         </table>
     </div>
+
+    <!-- Recovery Button -->
+    <button class="recovery-button" id="recovery-button">Testing Recovery</button>
 
     <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
     <script>
@@ -52,6 +76,30 @@
                 ? { message: log, timestamp: null } // Handle simple log format
                 : log; // Handle structured log format
             addLogEntry(message, timestamp);
+        });
+
+        // Handle Testing Recovery button click
+        const recoveryButton = document.getElementById("recovery-button");
+        recoveryButton.addEventListener("click", async () => {
+            try {
+                const response = await fetch("http://localhost:5001/manual_test", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ command: "start test" })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`Response: ${result.message}`);
+                } else {
+                    const errorResult = await response.json();
+                    alert(`Error: ${errorResult.message}`);
+                }
+            } catch (error) {
+                alert(`Failed to send request: ${error.message}`);
+            }
         });
     </script>
 </body>
