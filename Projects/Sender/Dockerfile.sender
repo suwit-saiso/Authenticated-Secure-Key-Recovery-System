@@ -1,9 +1,9 @@
 # Use the official Python image as the base image
 FROM python:3.11-slim
 
-# Set environment variables to prevent Python from writing pyc files and to run in unbuffered mode
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+# # Set environment variables to prevent Python from writing pyc files and to run in unbuffered mode
+# ENV PYTHONDONTWRITEBYTECODE=1
+# ENV PYTHONUNBUFFERED=1
 
 # Set working directory
 WORKDIR /app
@@ -20,17 +20,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python packages without requirements.txt
-RUN pip install --no-cache-dir flask cryptography
+# Install Python packages 
+RUN pip install --no-cache-dir flask cryptography flask_socketio requests
 
 # Copy the Sender Python script
-COPY ./Sender/sender_script.py /app/sender.py
+COPY ./Sender/sender_script.py /app/sender_script.py
+COPY ./Sender/sender_gui_script.py /app/sender_gui_script.py
+COPY ./Sender/keys /app/keys
+
+# Copy HTML template
+COPY ./Sender/templates/ /app/templates/
+
+# Copy css static
+COPY ./Sender/static/ /app/static/
 
 # Ensure the keys directory exists and is writable
 RUN mkdir -p /app/keys && chmod -R 700 /app/keys
 
 # Expose the port the Flask app runs on
-EXPOSE 5000 6000
+EXPOSE 5000 6000 8000
 
 # Command to run the Sender application
-CMD ["python","-u", "sender.py"]
+CMD ["sh", "-c", "python -u ./sender_script.py & python -u ./sender_gui_script.py"]

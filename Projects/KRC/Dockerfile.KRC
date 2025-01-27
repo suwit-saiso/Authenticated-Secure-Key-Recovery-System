@@ -20,18 +20,24 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --no-cache-dir \
     cryptography \
     pycryptodome \
-    socketio
+    python-socketio \
+    flask \
+    flask-socketio \
+    requests
 
-# Copy the krc_script.py and other necessary files into the container
+# Copy the application files into the container
 COPY ./KRC/krc_script.py /app/krc_script.py
+COPY ./KRC/krc_gui_script.py /app/krc_gui_script.py
+COPY ./KRC/templates/ /app/templates/
+COPY ./KRC/static/ /app/static/
+
+# Copy keys into the container and ensure permissions
 COPY ./KRC/keys /app/keys
 COPY ./Shared/keys /app/Shared/keys
+RUN mkdir -p /app/keys && chmod -R 700 /app/keys /app/Shared/keys
 
-# Ensure the keys directory exists and is writable
-RUN mkdir -p /app/keys && chmod -R 700 /app/keys
+# Expose ports
+EXPOSE 5002 8002
 
-# Expose the port that the server will listen on
-EXPOSE 5002
-
-# Command to run the krc_script.py when the container starts
-CMD ["python","-u", "krc_script.py"]
+# Command to run both scripts concurrently when the container starts
+CMD ["sh", "-c", "python -u ./krc_script.py & python -u ./krc_gui_script.py"]

@@ -194,8 +194,12 @@ def send_log_to_gui(log_message):
     gui_port = 8003 + int(KRA_ID[-1]) - 1
     gui_url = f"{gui_host}:{gui_port}/new_log"
     try:
-        requests.post(gui_url, json={"message": log_message})
-    except Exception as e:
+        response = requests.post(gui_url, json={"message": log_message}, timeout=5)
+        if response.status_code == 200:
+            print("Log successfully sent to GUI.")
+        else:
+            print(f"Failed to send log to GUI. Status code: {response.status_code}, Response: {response.text}")
+    except requests.exceptions.RequestException as e:
         print(f"Failed to send log to GUI: {e}")
 
 def randomized_delay(min_seconds=1, max_seconds=5):

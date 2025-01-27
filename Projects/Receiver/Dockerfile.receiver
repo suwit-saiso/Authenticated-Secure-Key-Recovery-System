@@ -20,20 +20,30 @@ RUN apt-get update && apt-get install -y \
 # Install Python dependencies manually
 RUN pip install --no-cache-dir flask \
     cryptography \
-    pyopenssl \
-    numpy
+    flask_socketio \
+    requests
 
 # Copy the current directory contents into the container at /app
-COPY . /app
+COPY ./Receiver/keys /app/keys
+
+# Copy main scripts
+COPY ./Receiver/receiver_script.py /app/receiver_script.py
+COPY ./Receiver/receiver_gui_script.py /app/receiver_gui_script.py
+
+# Copy HTML template
+COPY ./Receiver/templates/ /app/templates/
+
+# Copy css static
+COPY ./Receiver/static/ /app/static/
 
 # Ensure the keys directory exists and is writable
 RUN mkdir -p /app/keys && chmod -R 700 /app/keys
 
 # Expose the port the app runs on
-EXPOSE 5001 5050
+EXPOSE 5001 5050 8001
 
 # Set environment variables (if needed)
 ENV FLASK_ENV=development
 
 # Command to run the application
-CMD ["python","-u", "receiver_script.py"]
+CMD ["sh", "-c", "python -u ./receiver_script.py & python -u ./receiver_gui_script.py"]

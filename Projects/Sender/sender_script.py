@@ -9,6 +9,7 @@ import uuid
 import time
 import copy
 import random
+import requests
 
 #========================= Network Setup =======================
 RECEIVERHOST = "192.168.1.12"
@@ -41,6 +42,7 @@ def ensure_folder_exists(folder):
             os.makedirs(folder)
     except Exception as e:
         print(f"Error creating folder {folder}: {e}")
+        send_log_to_gui(f"Error creating folder {folder}: {e}")
 
 # Function to generate RSA Key Pair
 def generate_rsa_key_pair():
@@ -87,11 +89,13 @@ def generate_and_store_keys(entity_name):
         save_public_key(public_key, shared_public_key_path)
 
         print(f"Keys for {entity_name} saved successfully:")
+        send_log_to_gui(f"Keys for {entity_name} saved successfully:")
         print(f"  Private key -> {private_key_path}")
         print(f"  Public key -> {public_key_path}")
         print(f"  Public key (shared) -> {shared_public_key_path}")
     except Exception as e:
         print(f"Error saving keys for {entity_name}: {e}")
+        send_log_to_gui(f"Error saving keys for {entity_name}: {e}")
 
 # Load keys directly
 def load_private_key(file_path):
@@ -157,6 +161,7 @@ def wait_for_fresh_keys(folder, required_keys, max_age_seconds=120, timeout=60):
                     all_fresh = False
         if all_fresh:
             print("All keys are fresh.")
+            send_log_to_gui("All keys are fresh.")
             return
         time.sleep(5)  # Wait before re-checking
     raise TimeoutError(f"Timeout while waiting for fresh keys: {required_keys}")
@@ -210,6 +215,22 @@ def have_keys_changed(new_keys):
     return False
 
 #========================= Utility Functions =========================
+def send_log_to_gui(log_message):
+    """
+    Send log messages to the GUI application.
+    """
+    gui_host = f"http://192.168.1.11"  # Adjust for GUI container's IP
+    gui_port = 8000
+    gui_url = f"{gui_host}:{gui_port}/new_log"
+    try:
+        response = requests.post(gui_url, json={"message": log_message}, timeout=5)
+        if response.status_code == 200:
+            print("Log successfully sent to GUI.")
+        else:
+            print(f"Failed to send log to GUI. Status code: {response.status_code}, Response: {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to send log to GUI: {e}")
+
 def randomized_delay(min_seconds=1, max_seconds=5):
     """Introduces a random delay to avoid race conditions during startup."""
     delay = random.uniform(min_seconds, max_seconds)
@@ -235,11 +256,13 @@ def encrypt_data(message, public_key):
 # Encrypt message with session key
 def encrypt_plaintext(plaintext, session_key):
     print("Start encrypting plaintext.")
+    send_log_to_gui("Start encrypting plaintext.")
     iv = os.urandom(16)
     cipher = Cipher(algorithms.AES(session_key), modes.CFB(iv))
     encryptor = cipher.encryptor()
     encrypted_message = encryptor.update(plaintext.encode()) + encryptor.finalize()
     print("Encrypted plaintext successfully.")
+    send_log_to_gui("Encrypted plaintext successfully.")
     return iv, encrypted_message
 
 def aes_encrypt(data, key, iv):
@@ -255,12 +278,14 @@ def aes_encrypt(data, key, iv):
         bytes: The encrypted data.
     """
     print("Start encrypting KRF with AES.")
+    send_log_to_gui("Start encrypting KRF with AES.")
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
     encryptor = cipher.encryptor()
     # Ensure data is padded to a multiple of block size (16 bytes for AES)
     pad_len = 16 - (len(data) % 16)
     padded_data = data + bytes([pad_len] * pad_len)
     print("Encrypted KRF successfully.")
+    send_log_to_gui("Encrypted KRF successfully.")
     return encryptor.update(padded_data) + encryptor.finalize()
 
 # Encrypt session key and message for first establishment
@@ -282,22 +307,28 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
     try:
         # Encrypt the session key with the receiver's public key
         encrypted_session_key = encrypt_data(session_key,receiver_public_key)
+        send_log_to_gui(f"Session id: {session_id} \n Session key: {session_key} \n Encrypted session key: {encrypted_session_key}")
     except Exception as e:
         print("Error encrypting session key:", e)
+        send_log_to_gui(f"Error encrypting session key: {e}")
         raise
 
     try:
         # Encrypt the plaintext message with the session key (AES)
         iv, encrypted_message = encrypt_plaintext(plaintext, session_key)
+        send_log_to_gui(f"Message: {plaintext} \n Encrypted text {encrypted_message}")
     except Exception as e:
         print("Error encrypting plaintext message:", e)
+        send_log_to_gui(f"Error encrypting plaintext message: {e}")
         raise
 
     try:
         # Generate KRF
         krf = generate_krf(session_key, krc_public_key, keys["kra_public_keys"], receiver_public_key, session_id)
+        send_log_to_gui(f"Generated krf: {krf}")
     except Exception as e:
         print("Error generating KRF:", e)
+        send_log_to_gui(f"Error generating KRF:{e}")
         raise
 
     try:
@@ -305,15 +336,19 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
         aes_key = os.urandom(32)  # AES-256 key
         iv_aes = os.urandom(16)  # IV for AES encryption
         encrypted_krf = aes_encrypt(json.dumps(krf).encode(), aes_key, iv_aes)  # Encrypt the KRF with AES
+        send_log_to_gui(f"Aes key: {aes_key} \n Encrypted krf: {encrypted_krf}")
     except Exception as e:
         print("Error encrypting KRF with AES:", e)
+        send_log_to_gui(f"Error encrypting KRF with AES: {e}")
         raise
 
     try:
         # Encrypt the AES key with the KRC's public key
         encrypted_aes_key = encrypt_data(aes_key,krc_public_key)
+        send_log_to_gui(f"Encrypted aes key: {encrypted_aes_key}")
     except Exception as e:
         print("Error encrypting AES key:", e)
+        send_log_to_gui(f"Error encrypting AES key:{e}")
         raise
 
     # Package the session_id, encrypted session key, IVs, encrypted message, and KRF
@@ -370,6 +405,7 @@ def test_assemble_krf(session_key, num_agents, si_values, sr, sgn, tti_values):
 # Generate KRF
 def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_key, session_id):
     print("Generating KRF...")
+    send_log_to_gui("Generating KRF...")
     krf = {}
     num_kras = len(kra_public_keys)  # Number of KRAs (should be 5)
     timestamp = int(time.time())  # Current timestamp
@@ -394,20 +430,25 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
         tti = xor(si, sgn)  # TTi = Si XOR SGN
         tti_values.append(tti)  # Save TTi for testing
         krf_i = {'Si': si.hex(), 'SGN': sgn.hex()}
+        send_log_to_gui(f"krf-{i}: {krf_i} \n tt-{i}: tti")
 
         try:
             # Encrypt KRF-i with the KRA's public key
             krf[f"KRF-{i}"] = encrypt_data(json.dumps(krf_i).encode(),kra_key).hex()
+            send_log_to_gui(f"Encrypted KRF-{i}: {krf[f"KRF-{i}"]}")
         except Exception as e:
             print(f"Error encrypting KRF-{i}:", e)
+            send_log_to_gui(f"Error encrypting KRF-{i}: {e}")
             raise
 
         try:
             # Encrypt TT-i with the KRC's public key
             encrypted_tti = encrypt_data(tti,krc_public_key)
+            send_log_to_gui(f"Encrypted tt-{i}: {encrypted_tti}")
             krf[f"TT-{i}"] = json.dumps({"TTi": encrypted_tti.hex()})  # Store in JSON format
         except Exception as e:
             print(f"Error encrypting TT-{i}:", e)
+            send_log_to_gui(f"Error encrypting TT-{i}: {e}")
             raise
 
     # Encrypt Sr for the receiver
@@ -416,18 +457,22 @@ def generate_krf(session_key, krc_public_key, kra_public_keys, receiver_public_k
         krf["Sr"] = json.dumps({"Sr": encrypted_sr.hex()})  # Store in JSON format
     except Exception as e:
         print("Error encrypting Sr:", e)
+        send_log_to_gui(f"Error encrypting Sr: {e}")
         raise
 
     # Add session information
     try:
         other_information = {"session_id": session_id, "timestamp": timestamp}
         encrypted_info = encrypt_data(json.dumps(other_information).encode(),krc_public_key)
+        send_log_to_gui(f"Other info: {other_information} \n Encrypted info: {encrypted_info}")
         krf["OtherInformation"] = json.dumps({"Info": encrypted_info.hex()})  # Store in JSON format
     except Exception as e:
         print("Error encrypting session_info:", e)
+        send_log_to_gui(f"Error encrypting session_info: {e}")
         raise
 
     print(f"Generated KRF: {len(krf)} components created successfully.")
+    send_log_to_gui(f"Generated KRF: {len(krf)} components created successfully.")
     # DEBUG: Test reconstruction
     # test_assemble_krf(session_key, num_kras, si_values, sr, sgn, tti_values)
     return krf
@@ -439,12 +484,15 @@ def send_to_receiver(data):
             print("Creating socket...")
             s.bind(("192.168.1.11", 6000))  # Use a dynamic port
             print(f"Connecting to {RECEIVERHOST}:5001...")
+            send_log_to_gui(f"Connecting to {RECEIVERHOST}:5001...")
             s.connect((RECEIVERHOST, 5001))
             print("Connection successful, sending data...")
             s.sendall(len(data).to_bytes(4, byteorder="big") + data)
             print("Data sent, waiting for response...")
+            send_log_to_gui("Data sent, waiting for response...")
             response = s.recv(1024)
             print("Response received:", response.decode())
+            send_log_to_gui(f"Response received: {response.decode()}")
         return response
     except socket.timeout:
         print("Error: Connection timed out.")
@@ -465,6 +513,7 @@ def handle_message():
     plaintext = data.get("message")
 
     print("Input message: ",plaintext) 
+    send_log_to_gui(f"Input message: {plaintext}")
 
     # Update keys and check if they have changed
     new_keys = load_keys()
@@ -473,6 +522,7 @@ def handle_message():
     # If there's no active session or keys have changed, create a new session
     if not current_session["session_id"] or keys_have_changed:
         print("Creating a Session...")
+        send_log_to_gui("Creating a Session...")
         
         # update key
         keys = load_keys()
@@ -482,6 +532,7 @@ def handle_message():
             plaintext, keys["receiver_public_key"], keys["krc_public_key"]
         )
         print("Information created successfuly.")
+        send_log_to_gui("Session created successfuly.")
 
         current_session["session_id"] = session_id
         current_session["session_key"] = session_key
@@ -496,6 +547,7 @@ def handle_message():
             "encrypted_AES_key": encrypted_aes_key.hex(),
             "iv_aes": iv_aes.hex()
         }
+        send_log_to_gui(f"Payload prepared: {payload}")
     else:
         print("i'm now here at stage2")
         # Use existing session
@@ -508,6 +560,7 @@ def handle_message():
             "iv": iv.hex(),
             "encrypted_message": encrypted_message.hex()
         }
+        send_log_to_gui(f"Payload prepared: {payload}")
 
     # Send payload to Receiver
     datas = json.dumps(payload).encode("utf-8")

@@ -10,6 +10,7 @@ import os
 import time
 import hashlib
 import random
+import requests
 
 #========================= Flask Server =========================
 app = Flask(__name__)
@@ -43,6 +44,7 @@ def ensure_folder_exists(folder):
             os.makedirs(folder)
     except Exception as e:
         print(f"Error creating folder {folder}: {e}")
+        send_log_to_gui(f"Error creating folder {folder}: {e}")
 
 # Function to generate RSA Key Pair
 def generate_rsa_key_pair():
@@ -89,11 +91,13 @@ def generate_and_store_keys(entity_name):
         save_public_key(public_key, shared_public_key_path)
 
         print(f"Keys for {entity_name} saved successfully:")
+        send_log_to_gui(f"Keys for {entity_name} saved successfully:")
         print(f"  Private key -> {private_key_path}")
         print(f"  Public key -> {public_key_path}")
         print(f"  Public key (shared) -> {shared_public_key_path}")
     except Exception as e:
         print(f"Error saving keys for {entity_name}: {e}")
+        send_log_to_gui(f"Error saving keys for {entity_name}: {e}")
 
 # Load keys
 def load_private_key(file_path):
@@ -157,6 +161,7 @@ def wait_for_fresh_keys(folder, required_keys, max_age_seconds=120, timeout=60):
                     all_fresh = False
         if all_fresh:
             print("All keys are fresh.")
+            send_log_to_gui("All keys are fresh.")
             return
         time.sleep(5)  # Wait before re-checking
     raise TimeoutError(f"Timeout while waiting for fresh keys: {required_keys}")
@@ -195,6 +200,22 @@ def clear_all_triggers(folder):
     print("All triggers cleared.")
 
 #============================= Helper funtions ===================================
+def send_log_to_gui(log_message):
+    """
+    Send log messages to the GUI application.
+    """
+    gui_host = f"http://192.168.1.12"  # Adjust for GUI container's IP
+    gui_port = 8001
+    gui_url = f"{gui_host}:{gui_port}/new_log"
+    try:
+        response = requests.post(gui_url, json={"message": log_message}, timeout=5)
+        if response.status_code == 200:
+            print("Log successfully sent to GUI.")
+        else:
+            print(f"Failed to send log to GUI. Status code: {response.status_code}, Response: {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to send log to GUI: {e}")
+
 def randomized_delay(min_seconds=1, max_seconds=5):
     """Introduces a random delay to avoid race conditions during startup."""
     delay = random.uniform(min_seconds, max_seconds)
@@ -214,12 +235,15 @@ def decrypt_session_key(encrypted_session_key):
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
         )
         print("Decryption of session key successful!")
+        send_log_to_gui("Decryption of session key successful!")
         return session_key
     except ValueError as e:
         print(f"Decryption failed: {e}")
+        send_log_to_gui(f"Decryption failed: {e}")
         raise ValueError("Session key decryption failed. Ensure the correct public/private keys are used.") from e
     except Exception as e:
         print(f"Unexpected error during session key decryption: {e}")
+        send_log_to_gui(f"Unexpected error during session key decryption: {e}")
         raise
 
 def encrypt_plaintext(plaintext, session_key):
@@ -243,6 +267,7 @@ def encrypt_plaintext(plaintext, session_key):
 def decrypt_plaintext(encrypted_message, session_key, iv):
     try:
         print("Starting plaintext decryption...")
+        send_log_to_gui("Starting plaintext decryption...")
         print(f"Encrypted message length: {len(encrypted_message)} bytes")
         print(f"IV length: {len(iv)} bytes")
 
@@ -258,6 +283,7 @@ def decrypt_plaintext(encrypted_message, session_key, iv):
         # Decrypt the message
         plaintext = decryptor.update(encrypted_message) + decryptor.finalize()
         print("Decryption successful!")
+        send_log_to_gui("Decryption successful!")
         return plaintext.decode()
     except ValueError as e:
         print(f"Decryption failed: {e}")
@@ -297,11 +323,13 @@ def encrypt_challenge_code(challenge_code, krc_public_key):
 def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
     try:
         print("Starting recovery process.")
+        send_log_to_gui("Starting recovery process.")
         
         # Generate PKCE-like challenge
         challenge_code, challenge_verifier = generate_pkce_challenge()
         timestamp = int(time.time())  # Add current timestamp
-        
+        send_log_to_gui(f"Generated challenge code: {challenge_code} and \n Challenge verifier: {challenge_verifier}")
+
         # Prepare key recovery request to KRC
         recovery_request = {
             'challenge_verifier': challenge_verifier.hex(),
@@ -309,6 +337,7 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
             'timestamp': timestamp
         }
         print("Recovery request prepared:", recovery_request)
+        send_log_to_gui(f"Recovery request prepared: {recovery_request}")
 
         # Serialize and encrypt recovery request
         json_request = json.dumps(recovery_request)
@@ -319,18 +348,21 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
             "encrypted_AES_key": encrypted_AES_key,
             "iv_aes": iv_AES
         }
+        send_log_to_gui(f"Payload to send: {payload}")
 
         # Send the request to KRC
         payload_bytes = json.dumps(payload).encode('utf-8')
         connection = send_to_krc(payload_bytes, False, None)
         if not connection:
             print("Failed to establish connection with KRC.")
+            send_log_to_gui("Failed to establish connection with KRC.")
             return "KRC unavailable"
 
         # Receive initial response from KRC
         krc_response = receive_response_from_krc(connection)
         if "error" in krc_response:
             print("Error received from KRC:", krc_response["error"])
+            send_log_to_gui(f"Error received from KRC: {krc_response["error"]}")
             return krc_response["error"]
 
         # Validate response structure
@@ -339,9 +371,11 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
 
         if krc_response.get('response') != "Request accepted, please verify yourself":
             print("Request denied by KRC.")
+            send_log_to_gui("Request denied by KRC.")
             return "Request denied by KRC"
 
         print("Request accepted, proceeding to verification.")
+        send_log_to_gui("Request accepted, proceeding to verification.")
 
         # Proceed with verification
         encrypted_challenge_code = encrypt_challenge_code(challenge_code, keys['krc_public_key'])
@@ -349,12 +383,14 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         verification_payload = {
             "encrypted_challenge_code": encrypted_challenge_code.hex()
         }
+        send_log_to_gui(f"Payload to send KRF(challenge code): {verification_payload}")
         # Send verification data to KRC
         verification_bytes = json.dumps(verification_payload).encode('utf-8')
         # Reuse existing connection for verification
         connection2 = send_to_krc(verification_bytes, True, connection)
         if not connection2:
             print("Failed to reuse connection for verification.")
+            send_log_to_gui("Failed to reuse connection for verification.")
             return "KRC verification failed"
 
         # Receive authentication response
@@ -366,9 +402,11 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
 
         if krc_auth_response.get('response') != "Authenticate successfully":
             print("Authentication failed.")
+            send_log_to_gui("Authentication failed.")
             return "Authentication failed"
 
         print("Authentication successful. Waiting to receive session key parts.")
+        send_log_to_gui("Authentication successful. Waiting to receive session key parts.")
 
         # Receive the session key parts
         key_parts = receive_from_krc(connection2)
@@ -385,16 +423,20 @@ def recover_session_key(encrypted_krf, session_id, encrypted_AES_key, iv_AES):
         encrypted_Sr = bytes.fromhex(key_parts['Sr'])
         Sr = decrypt_data(encrypted_Sr)
         
+        send_log_to_gui(f"Key parts received from KRC.\n Unfinished session key: {unfinished_session_key} \n Requester key part: {Sr}")
         # Assemble the session key
         session_key = xor(unfinished_session_key, Sr)
         print("Session key assembly complete.")
+        send_log_to_gui(f"Session key assembly complete. {session_key}")
         return session_key
 
     except ValueError as ve:
         print(f"Value error during recovery: {ve}")
+        send_log_to_gui(f"Value error during recovery: {ve}")
         return f"Error: {ve}"
     except Exception as e:
         print(f"Unexpected error during recovery: {e}")
+        send_log_to_gui(f"Unexpected error during recovery: {e}")
         return f"Error: {e}"
 
 # Session Cleanup
@@ -411,6 +453,7 @@ def send_to_krc(data,have_connection,s):
         if have_connection and s:
             s.sendall(len(data).to_bytes(4, byteorder="big") + data)
             print("Data sent to KRC.")
+            send_log_to_gui("Data sent to KRC.")
             return s
         
         # Attempt to create a new socket connection
@@ -419,15 +462,19 @@ def send_to_krc(data,have_connection,s):
         s.connect((KRC_HOST, KRC_PORT))
         s.sendall(len(data).to_bytes(4, byteorder="big") + data)
         print("Data sent to KRC.")
+        send_log_to_gui("Data sent to KRC.")
         return s
     except socket.timeout:
         print("Timeout while sending data to KRC")
+        send_log_to_gui("Timeout while sending data to KRC")
         return None
     except (ConnectionRefusedError, ConnectionResetError):
         print("Error: Unable to connect to KRC.")
+        send_log_to_gui("Error: Unable to connect to KRC.")
         return None
     except Exception as e:
         print(f"Unexpected error in send_to_krc: {e}")
+        send_log_to_gui(f"Unexpected error in send_to_krc: {e}")
         return None
 
 # Receive response from KRC 
@@ -438,6 +485,7 @@ def receive_response_from_krc(s):
         
         response = s.recv(2048)
         print("Response received from KRC.")
+        send_log_to_gui("Response received from KRC.")
         response_json = json.loads(response.decode())
 
         if not isinstance(response_json, dict):
@@ -446,12 +494,15 @@ def receive_response_from_krc(s):
         return response_json
     except socket.timeout:
         print("Timeout while waiting for response from KRC")
+        send_log_to_gui("Timeout while waiting for response from KRC")
         return {"error": "Timeout"}
     except (ConnectionRefusedError, ConnectionResetError):
         print("Error: Connection issue while receiving response from KRC.")
+        send_log_to_gui("Error: Connection issue while receiving response from KRC.")
         return {"error": "Connection issue"}
     except Exception as e:
         print(f"Unexpected error in receive_response_from_krc: {e}")
+        send_log_to_gui(f"Unexpected error in receive_response_from_krc: {e}")
         return {"error": str(e)}
 
 # Receive session key from KRC 
@@ -461,6 +512,7 @@ def receive_from_krc(s):
             raise ConnectionError("No valid socket connection to KRC.")
         
         print("Waiting to receive session key from KRC...")
+        send_log_to_gui("Waiting to receive session key from KRC...")
         new_session_key = s.recv(2048)
         if not new_session_key:
             raise ValueError("No data received from KRC.")
@@ -471,28 +523,35 @@ def receive_from_krc(s):
             raise ValueError("Invalid format received for session key data.")
 
         print("Session key data successfully received from KRC.")
+        send_log_to_gui("Session key data successfully received from KRC.")
         return key_data
     except socket.timeout:
         print("Timeout while waiting for session key from KRC.")
+        send_log_to_gui("Timeout while waiting for session key from KRC.")
         return {"error": "Timeout"}
     except ConnectionRefusedError:
         print("Error: Connection to KRC refused.")
+        send_log_to_gui("Error: Connection to KRC refused.")
         return {"error": "Connection refused"}
     except ValueError as ve:
         print(f"Data validation error: {ve}")
+        send_log_to_gui(f"Data validation error: {ve}")
         return {"error": str(ve)}
     except Exception as e:
         print(f"Unexpected error in receive_from_krc: {e}")
+        send_log_to_gui(f"Unexpected error in receive_from_krc: {e}")
         return {"error": str(e)}
     finally:
         if s:
             print("Closing connection after receiving session key.")
+            send_log_to_gui("Closing connection after receiving session key.")
             s.close()
     
 # ฟังก์ชั่นสำหรับสร้าง session ใหม่
 def establish_session(session_id, session_key, encrypted_krf, iv, encrypted_message, encrypted_AES_key, iv_AES):
     sessions[session_id] = {"session_key": session_key, "krf": encrypted_krf, "iv": iv, "encrypted_message": encrypted_message, "AES_key": encrypted_AES_key, "iv_AES": iv_AES}
     print(f"Session established: {session_id}")
+    send_log_to_gui(f"Session established: {sessions[session_id]}")
 
 # Function to handle messages from the sender
 def receive_from_sender(session_id, iv, encrypted_message):
@@ -503,6 +562,7 @@ def receive_from_sender(session_id, iv, encrypted_message):
         session = sessions.get(session_id)
         if not session:
             print(f"Session not found for session_id: {session_id}")
+            send_log_to_gui(f"Session not found for session_id: {session_id}")
             return {"error": "Session not found"}
         
         # Attempt to get the session key from the session
@@ -510,6 +570,7 @@ def receive_from_sender(session_id, iv, encrypted_message):
         
         if not session_key:
             print("Session key missing, initiating recovery.")
+            send_log_to_gui("Session key missing, initiating recovery.")
             
             # Retrieve required details for session key recovery
             encrypted_krf = session.get("krf")
@@ -518,6 +579,7 @@ def receive_from_sender(session_id, iv, encrypted_message):
             
             if not all([encrypted_krf, encrypted_AES_key, iv_AES]):
                 print("Missing data for session key recovery.")
+                send_log_to_gui("Missing data for session key recovery.")
                 return {"error": "Missing data for session key recovery"}
             
             # Recover the session key
@@ -525,15 +587,18 @@ def receive_from_sender(session_id, iv, encrypted_message):
             
             if recovered_key in ["Authentication failed", "Request denied"]:
                 print(f"Session key recovery failed: {recovered_key}")
+                send_log_to_gui(f"Session key recovery failed: {recovered_key}")
                 return {"error": recovered_key}
             
             if not isinstance(recovered_key, bytes):
                 print(f"Invalid session key recovered: {recovered_key}")
+                send_log_to_gui(f"Invalid session key recovered: {recovered_key}")
                 return {"error": "Recovered session key is invalid"}
             
             # Update session with the recovered key
             session["session_key"] = recovered_key
             print("Session key successfully recovered and stored.")
+            send_log_to_gui("Session key successfully recovered and stored.")
             session_key = recovered_key
             session_key_source = "from KRC"
         else:
@@ -541,8 +606,10 @@ def receive_from_sender(session_id, iv, encrypted_message):
         
         # Decrypt the message
         print(f"Start decrypting message using session key {session_key_source}.")
+        send_log_to_gui(f"Start decrypting message using session key {session_key_source}.")
         decrypted_message = decrypt_plaintext(encrypted_message, session_key, iv)
         print(f"Decrypted message: {decrypted_message}")
+        send_log_to_gui(f"Decrypted message: {decrypted_message}\n,Session_key_used:{session_key_source}")
         
         return {
             "decrypted_message": decrypted_message,
@@ -568,6 +635,7 @@ def handle_sender_connection(conn):
                 print("No data received.")
                 return
             print("data received")
+            send_log_to_gui("data received")
             # Convert data bytes to dict
             request = json.loads(data.decode("utf-8"))
 
@@ -613,18 +681,22 @@ def handle_sender_connection(conn):
             return
 
         print("Extracted data successfully.")
+        send_log_to_gui("Extracted data successfully.")
 
         # Handle session establishment or recovery
         if session_id not in sessions:
             print("Establishing new session...")
+            send_log_to_gui("Establishing new session...")
             if not encrypted_krf:
                 print("Missing 'encrypted_krf' for session establishment.")
+                send_log_to_gui("Missing 'encrypted_krf' for session establishment.")
                 conn.sendall(json.dumps({"error": "Missing 'encrypted_krf'"}).encode())
                 return
 
             session_key = decrypt_session_key(encrypted_session_key)
             establish_session(session_id, session_key, encrypted_krf, iv, encrypted_message, encrypted_AES_key, iv_AES)
             print("Session established.")
+            send_log_to_gui("Session established.")
 
         # Process message
         print("Processing message...")
@@ -638,6 +710,7 @@ def handle_sender_connection(conn):
     finally:
         conn.close()
         print("Connection closed.")
+        send_log_to_gui("Connection closed.")
 
 # Function to start the socket server
 def start_socket_server():
@@ -645,9 +718,11 @@ def start_socket_server():
         server.bind((LISTEN_HOST, LISTEN_PORT))
         server.listen(5)
         print(f"Socket server listening on {LISTEN_HOST}:{LISTEN_PORT}")
+        send_log_to_gui(f"Socket server listening on {LISTEN_HOST}:{LISTEN_PORT}")
 
         while True:
             print("Waiting for a connection...")
+            send_log_to_gui("Waiting for a connection...")
             conn, addr = server.accept()
             print(f"Connection from {addr}")
             # Pass the connection to a new thread
