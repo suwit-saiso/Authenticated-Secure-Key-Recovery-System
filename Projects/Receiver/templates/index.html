@@ -49,27 +49,27 @@
     <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
     <script>
         const socket = io();
-
+    
         // Add log entry to the table
         function addLogEntry(message, timestamp) {
             const tableBody = document.getElementById("log-table-body");
             const row = document.createElement("tr");
-
+    
             // Create timestamp cell
             const timestampCell = document.createElement("td");
             const logTimestamp = timestamp ? new Date(timestamp) : new Date();
             timestampCell.textContent = logTimestamp.toLocaleString();
             row.appendChild(timestampCell);
-
+    
             // Create message cell
             const messageCell = document.createElement("td");
             messageCell.textContent = message;
             messageCell.style.whiteSpace = "normal"; // Ensure text wraps
             row.appendChild(messageCell);
-
+    
             tableBody.appendChild(row);
         }
-
+    
         // Listen for log updates from the server
         socket.on("log_update", (log) => {
             const { message, timestamp } = typeof log === "string" 
@@ -77,19 +77,19 @@
                 : log; // Handle structured log format
             addLogEntry(message, timestamp);
         });
-
+    
         // Handle Testing Recovery button click
         const recoveryButton = document.getElementById("recovery-button");
         recoveryButton.addEventListener("click", async () => {
             try {
-                const response = await fetch("http://192.168.1.12:5050/manual_test", {
+                const response = await fetch("/receiver_gui/recovery", { // Call receiver_gui_script.py
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({ command: "start test" })
                 });
-
+    
                 if (response.ok) {
                     const result = await response.json();
                     alert(`Response: ${result.message}`);
@@ -101,6 +101,6 @@
                 alert(`Failed to send request: ${error.message}`);
             }
         });
-    </script>
+    </script>    
 </body>
 </html>
