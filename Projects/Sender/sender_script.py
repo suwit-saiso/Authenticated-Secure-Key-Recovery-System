@@ -307,7 +307,7 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
     try:
         # Encrypt the session key with the receiver's public key
         encrypted_session_key = encrypt_data(session_key,receiver_public_key)
-        send_log_to_gui(f"Session id: {session_id} \n Session key: {session_key} \n Encrypted session key: {encrypted_session_key} \n successfully generated.")
+        send_log_to_gui(f"Session id: {session_id} ---->Session key: {session_key} ---->Encrypted session key: {encrypted_session_key} ---->successfully generated.")
     except Exception as e:
         print("Error encrypting session key:", e)
         send_log_to_gui(f"Error encrypting session key: {e}")
