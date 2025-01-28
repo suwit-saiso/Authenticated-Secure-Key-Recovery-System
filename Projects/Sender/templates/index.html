@@ -57,7 +57,7 @@
             row.appendChild(timestampCell);
 
             const messageCell = document.createElement("td");
-            messageCell.textContent = message;
+            messageCell.innerHTML = message.replace(/\n/g, '<br>');
             messageCell.style.whiteSpace = "normal";
             row.appendChild(messageCell);
 
