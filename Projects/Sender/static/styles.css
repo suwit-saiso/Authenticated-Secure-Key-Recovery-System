@@ -88,7 +88,8 @@ tbody tr:focus {
 
 /* Message Form */
 .message-form {
-    width: 80%;
+    width: 80%; /* Match the width of the table */
+    max-width: 100%; /* Prevent overflow */
     margin: 20px auto;
     padding: 20px;
     background-color: #333;
@@ -109,7 +110,8 @@ tbody tr:focus {
 }
 
 .message-form input, .message-form select, .message-form textarea, .message-form button {
-    width: 100%;
+    width: calc(100% - 20px); /* Prevent overflow by adjusting for padding */
+    max-width: 100%; /* Ensure it stays within the container */
     padding: 10px;
     margin-top: 5px;
     margin-bottom: 15px;
@@ -118,6 +120,12 @@ tbody tr:focus {
     background-color: #444;
     color: #f4f4f4;
     font-size: 16px;
+}
+
+.message-form textarea {
+    resize: vertical; /* Allow resizing only vertically */
+    max-height: 200px; /* Limit maximum height */
+    min-height: 100px; /* Set a minimum height */
 }
 
 .message-form button {
@@ -140,5 +148,9 @@ tbody tr:focus {
 
     th:first-child, td:first-child {
         width: 35%; /* Adjust for smaller screens */
+    }
+
+    .message-form {
+        width: 90%; /* Slightly smaller for smaller screens */
     }
 }
