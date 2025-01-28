@@ -82,7 +82,7 @@
         const recoveryButton = document.getElementById("recovery-button");
         recoveryButton.addEventListener("click", async () => {
             try {
-                const response = await fetch("http://localhost:5050/manual_test", {
+                const response = await fetch("http://192.168.1.12:5050/manual_test", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json"
