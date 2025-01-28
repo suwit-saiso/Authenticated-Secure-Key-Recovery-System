@@ -89,7 +89,7 @@ def generate_and_store_keys(entity_name):
         save_public_key(public_key, shared_public_key_path)
 
         print(f"Keys for {entity_name} saved successfully:")
-        send_log_to_gui(f"Keys for {entity_name} saved successfully:")
+        send_log_to_gui(f"Private and public keys for {entity_name} generated and saved successfully:")
         print(f"  Private key -> {private_key_path}")
         print(f"  Public key -> {public_key_path}")
         print(f"  Public key (shared) -> {shared_public_key_path}")
@@ -307,7 +307,7 @@ def first_establishment(plaintext, receiver_public_key, krc_public_key):
     try:
         # Encrypt the session key with the receiver's public key
         encrypted_session_key = encrypt_data(session_key,receiver_public_key)
-        send_log_to_gui(f"Session id: {session_id} \n Session key: {session_key} \n Encrypted session key: {encrypted_session_key}")
+        send_log_to_gui(f"Session id: {session_id} \n Session key: {session_key} \n Encrypted session key: {encrypted_session_key} \n successfully generated.")
     except Exception as e:
         print("Error encrypting session key:", e)
         send_log_to_gui(f"Error encrypting session key: {e}")

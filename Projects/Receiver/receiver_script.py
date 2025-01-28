@@ -91,7 +91,7 @@ def generate_and_store_keys(entity_name):
         save_public_key(public_key, shared_public_key_path)
 
         print(f"Keys for {entity_name} saved successfully:")
-        send_log_to_gui(f"Keys for {entity_name} saved successfully:")
+        send_log_to_gui(f"Private and public keys for {entity_name} generated and saved successfully:")
         print(f"  Private key -> {private_key_path}")
         print(f"  Public key -> {public_key_path}")
         print(f"  Public key (shared) -> {shared_public_key_path}")
