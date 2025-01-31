@@ -736,6 +736,7 @@ def manual_test():
         if not sessions:
             # when start test before having data
             print("No session found")
+            send_log_to_gui("No session found")
             return jsonify({"message": "No session found"}), 404
 
         # Take the latest session_id
@@ -749,6 +750,7 @@ def manual_test():
         session_key = session.pop("session_key", None)
         if not session_key:
             print("Session key already removed")
+            send_log_to_gui("Session key already removed")
 
         # Call receive_from_sender to trigger recovery
         iv = session["iv"]
@@ -760,6 +762,33 @@ def manual_test():
             session["session_key"] = session_key
 
         return jsonify({"message": response})
+
+    elif data.get("command") == "corrupt":
+        if not sessions:
+            print("No session found")
+            send_log_to_gui("No session found")
+            return jsonify({"message": "No session found"}), 404
+
+        # Take the latest session_id
+        latest_session_id = list(sessions.keys())[-1]
+        session = sessions.get(latest_session_id)
+
+        if not session:
+            return jsonify({"message": "No active session found"}), 404
+        
+        # Simulate corrupt session key
+        session["session_key"] = os.urandom(32)  # Replace with a random 32-byte key
+        key = session["session_key"]
+        print("Session key corrupted")
+        send_log_to_gui(f"Session key corrupted. Current session key is: {key}")
+
+        # Call receive_from_sender to trigger recovery
+        iv = session["iv"]
+        encrypted_message = session["encrypted_message"]
+        response = receive_from_sender(latest_session_id, iv, encrypted_message)
+
+        return jsonify({"message": response})
+
     return jsonify({"message": "Invalid command"}), 400
 
 # Run Flask app and socket server concurrently

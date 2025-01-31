@@ -510,6 +510,7 @@ def handle_message():
     global current_session
     global keys  # Access the global keys variable
 
+    send_log_to_gui("Waiting for Input message...")
     data = request.json
     plaintext = data.get("message")
     receiveraddr = data.get("receiver", None)

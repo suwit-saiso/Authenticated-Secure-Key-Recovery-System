@@ -47,7 +47,37 @@ def new_log():
 @app.route("/receiver_gui/recovery", methods=["POST"])
 def handle_recovery():
     """
-    Forward the receiver and message to the sender script.
+    Forward message to the receiver script.
+    """
+    data = request.json
+    message = data.get("command")
+
+    if not message:
+        return jsonify({"status": "error", "message": "Message are required"}), 400
+
+    try:
+        # Forward data to sender_script.py
+        payload = {"command": message}
+        response = requests.post(RECEIVER_SCRIPT_URL, json=payload)
+        
+        if response.status_code == 200:
+            log_message = {
+                "message": f"Message sent to Receiver: {message}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            add_log_entry(log_message)  # Add log
+            return jsonify({"status": "success", "response": response.json()}), 200
+        else:
+            error_message = response.json().get("error", "Unknown error")
+            return jsonify({"status": "error", "message": error_message}), response.status_code
+    except Exception as e:
+        error_message = f"Failed to send message: {str(e)}"
+        return jsonify({"status": "error", "message": error_message}), 500
+    
+@app.route("/receiver_gui/corrupt", methods=["POST"])
+def handle_corrupt():
+    """
+    Forward the message to the receiver script.
     """
     data = request.json
     message = data.get("command")

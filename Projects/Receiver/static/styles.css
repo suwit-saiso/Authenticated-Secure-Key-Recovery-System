@@ -8,7 +8,7 @@ body {
 }
 
 h1 {
-    color: #f4f4f4; /* Light color for dark background */
+    color: #f4f4f4;
     text-align: center;
     padding: 20px 0;
 }
@@ -17,67 +17,59 @@ h1 {
 .table-container {
     width: 80%;
     margin: 20px auto;
-    overflow-y: auto; /* Vertical scroll bar when needed */
-    max-height: 80vh; /* Restrict table height */
-    border: 1px solid #444; /* Add border to container */
-    border-radius: 8px; /* Slight rounding for aesthetics */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); /* Subtle shadow for depth */
+    overflow-y: auto;
+    max-height: 80vh;
+    border: 1px solid #444;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
 }
 
 /* Table Styles */
 table {
-    width: 100%; /* Take full width of container */
+    width: 100%;
     border-collapse: collapse;
-    border-spacing: 0; /* No extra space between cells */
-    background-color: #333; /* Darker background for table */
-    color: #f4f4f4; /* Light text color */
-    table-layout: fixed; /* Fixed layout for consistent column sizes */
+    background-color: #333;
+    color: #f4f4f4;
+    table-layout: fixed;
 }
 
 /* Sticky Table Header */
 thead {
-    position: sticky; /* Make the header sticky */
-    top: 0; /* Stick to the top of the container */
-    z-index: 1; /* Ensure header stays above content */
-    background-color: #ff7f0e; /* Orange color for table headers */
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #ff7f0e;
 }
 
 /* Table Cells */
 th, td {
     text-align: left;
     padding: 10px;
-    border: 1px solid #444; /* Subtle borders for table cells */
-    word-wrap: break-word; /* Ensure long text wraps to the next line */
-    white-space: pre-wrap; /* Preserve formatting while wrapping */
-    overflow-wrap: break-word; /* Ensure proper word breaking */
-}
-
-/* Adjust Timestamp Column */
-th:first-child, td:first-child {
-    width: 25%; /* Set fixed width for the timestamp column */
-    max-width: 200px; /* Optional: Add a maximum width */
-    text-align: left; /* Ensure proper alignment */
+    border: 1px solid #444;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
 }
 
 th {
-    color: #2d2d2d; /* Dark text color for contrast */
+    color: #2d2d2d;
     font-weight: bold;
 }
 
 tr:nth-child(even) {
-    background-color: #3d3d3d; /* Slightly lighter row for even rows */
+    background-color: #3d3d3d;
 }
 
 tr:hover {
-    background-color: #444; /* Highlight color for hover */
+    background-color: #444;
 }
 
 /* Ensure long messages do not break layout */
 td {
-    vertical-align: top; /* Align content to the top of the cell */
+    vertical-align: top;
 }
 
-/* Scrollbar Styling (Optional) */
+/* Scrollbar Styling */
 .table-container::-webkit-scrollbar {
     width: 8px;
 }
@@ -91,28 +83,45 @@ td {
     background-color: #777;
 }
 
+/* Button Container */
+.button-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px; /* Space between buttons */
+}
+
 /* Recovery Button Styling */
 .recovery-button {
-    position: fixed;
-    bottom: 20px; /* Position from the bottom */
-    right: 20px; /* Position from the right */
     padding: 10px 20px;
-    background-color: #ff7f0e; /* Orange color to match table headers */
-    color: #fff; /* Light text color for contrast */
+    background-color: #ff7f0e;
+    color: #fff;
     border: none;
-    border-radius: 8px; /* Rounded corners */
-    font-size: 16px; /* Larger font for visibility */
+    border-radius: 8px;
+    font-size: 16px;
     cursor: pointer;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); /* Subtle shadow for depth */
-    transition: background-color 0.3s ease; /* Smooth hover transition */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: background-color 0.3s ease;
 }
 
 .recovery-button:hover {
-    background-color: #ff9a42; /* Lighter orange on hover */
+    background-color: #ff9a42;
 }
 
-/* Adjust button text alignment and layout for accessibility */
-.recovery-button:focus {
-    outline: none; /* Remove default outline */
-    box-shadow: 0 0 0 2px #ff9a42; /* Add custom focus outline for accessibility */
+/* Corrupt Button Styling */
+.corrupt-button {
+    padding: 10px 20px;
+    background-color: #d9534f; /* Red color for corruption action */
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: background-color 0.3s ease;
+}
+
+.corrupt-button:hover {
+    background-color: #c9302c;
 }
