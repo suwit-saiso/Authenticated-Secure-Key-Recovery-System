@@ -570,6 +570,7 @@ def handle_message():
     # Send payload to Receiver
     datas = json.dumps(payload).encode("utf-8")
     response = send_to_receiver(datas)
+    keys_have_changed = False
     return jsonify({"response": response.decode()})
 
 if __name__ == "__main__":
@@ -615,6 +616,7 @@ if __name__ == "__main__":
         
         # Step 6: Load keys and store them globally
         keys = load_keys()  # Load keys after synchronization
+        previous_keys = keys
 
         # Step 7: Start the container application
         app.run(host="0.0.0.0", port=5000)
