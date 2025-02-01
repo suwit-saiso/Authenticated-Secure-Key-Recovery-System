@@ -508,7 +508,7 @@ def send_to_receiver(data):
 @app.route("/send_message", methods=["POST"])
 def handle_message():
     global current_session
-    global keys  # Access the global keys variable
+    global keys,previous_keys # Access the global keys variable
 
     send_log_to_gui("Waiting for Input message...")
     data = request.json
@@ -524,13 +524,17 @@ def handle_message():
     new_keys = load_keys()
     keys_have_changed = have_keys_changed(new_keys)
 
+    # Ensure previous_keys are updated after comparison
+    if not keys_have_changed:
+        previous_keys = new_keys  # Update the previous_keys if no changes detected
+
     # If there's no active session or keys have changed, create a new session
     if not current_session["session_id"] or keys_have_changed:
         print("Creating a Session...")
         send_log_to_gui("Creating a Session...")
         
         # update key
-        keys = load_keys()
+        keys = new_keys  # Use already loaded new_keys
         
         # Perform first establishment
         session_id, session_key, encrypted_session_key, iv, encrypted_message, encrypted_krf, encrypted_aes_key, iv_aes = first_establishment(
@@ -570,7 +574,6 @@ def handle_message():
     # Send payload to Receiver
     datas = json.dumps(payload).encode("utf-8")
     response = send_to_receiver(datas)
-    keys_have_changed = False
     return jsonify({"response": response.decode()})
 
 if __name__ == "__main__":

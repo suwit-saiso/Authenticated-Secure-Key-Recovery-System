@@ -85,7 +85,10 @@
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify({ receiver, message }),
+                    body: JSON.stringify({ 
+                        receiver: receiver, 
+                        message: message.toString()  // Ensuring it's a string 
+                    }),
                 });
 
                 const result = await response.json();
