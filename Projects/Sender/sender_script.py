@@ -203,8 +203,17 @@ def serialize_key(key):
     """Convert RSA keys to a string format for comparison."""
     if isinstance(key, bytes):  # If already in bytes, decode it
         return key.decode("utf-8").strip()
-    elif hasattr(key, "export_key"):  # If it's an RSA key object
-        return key.export_key().decode("utf-8").strip()
+    elif hasattr(key, "public_bytes"):  # Public Key Handling
+        return key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ).decode("utf-8").strip()
+    elif hasattr(key, "private_bytes"):  # Private Key Handling
+        return key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        ).decode("utf-8").strip()
     elif isinstance(key, list):  # If it's a list of keys (e.g., KRA keys)
         return [serialize_key(k) for k in key]
     return key  # Otherwise, return as is
