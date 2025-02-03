@@ -3,6 +3,7 @@ import socket
 import json
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.asymmetric import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 import uuid
@@ -201,31 +202,23 @@ def clear_all_triggers(folder):
     print("All triggers cleared.")
    
 def serialize_key(key):
-    """Convert RSA keys to a string format for comparison."""
-    if isinstance(key, bytes):  
-        return key.decode("utf-8").strip()
-    elif hasattr(key, "public_bytes"):  
-        return key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-        ).decode("utf-8").strip()
-    elif hasattr(key, "private_bytes"):  
+    """ Convert a cryptographic key to a serialized format for comparison. """
+    if isinstance(key, RSAPrivateKey):
         return key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption()
-        ).decode("utf-8").strip()
-    elif isinstance(key, list):  
-        return [serialize_key(k) for k in key]  # Ensure consistency before hashing
-    return str(key)  # Convert unknown types to string
+        )
+    elif isinstance(key, RSAPublicKey):
+        return key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+    return key  # Non-key values remain unchanged
 
-def hash_key(key_data):
-    """Generate a hash for the serialized key to compare safely."""
-    if isinstance(key_data, list):
-        # Convert list to a sorted string representation to ensure consistent comparison
-        key_data = json.dumps(sorted(key_data))  # Convert to JSON string format
-
-    return hashlib.sha256(key_data.encode('utf-8')).hexdigest()
+def hash_key(serialized_key):
+    """ Generate a hash of the serialized key to detect changes. """
+    return hashlib.sha256(serialized_key).hexdigest() if isinstance(serialized_key, bytes) else serialized_key
 
 def have_keys_changed(new_keys):
     """
@@ -244,13 +237,13 @@ def have_keys_changed(new_keys):
         if key_name not in serialized_prev_keys or serialized_prev_keys[key_name] != key_value:
             print(f"Key {key_name} has changed!")
             send_log_to_gui(f"Debugging: Key {key_name} has changed!")
-            previous_keys = copy.deepcopy(new_keys)  # Update keys immediately
+            previous_keys = serialized_new_keys  # Update keys immediately
             return True  # A key has changed
 
     print("No key changes detected.")
     send_log_to_gui("Debugging: No key changes detected.")
-    
-    previous_keys = copy.deepcopy(new_keys)  # Ensure state is updated
+
+    previous_keys = serialized_new_keys  # Ensure state is updated
     return False
 
 #========================= Utility Functions =========================
