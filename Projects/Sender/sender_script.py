@@ -558,7 +558,8 @@ def handle_message():
         }
         send_log_to_gui(f"Payload prepared: {payload}")
     else:
-        print("i'm now here at stage2")
+        print("sending to existing session")
+        send_log_to_gui("sending to existing session")
         # Use existing session
         session_key = current_session["session_key"]
         session_id = current_session["session_id"]
