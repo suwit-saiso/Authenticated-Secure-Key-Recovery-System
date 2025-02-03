@@ -10,6 +10,7 @@ import time
 import copy
 import random
 import requests
+import hashlib
 
 #========================= Network Setup =======================
 RECEIVERHOST = "192.168.1.12"
@@ -201,7 +202,7 @@ def clear_all_triggers(folder):
    
 def serialize_key(key):
     """Convert RSA keys to a string format for comparison."""
-    if isinstance(key, bytes):  # If already in bytes, decode it
+    if isinstance(key, bytes):  
         return key.decode("utf-8").strip()
     elif hasattr(key, "public_bytes"):  # Public Key Handling
         return key.public_bytes(
@@ -218,30 +219,34 @@ def serialize_key(key):
         return [serialize_key(k) for k in key]
     return key  # Otherwise, return as is
 
+def hash_key(key_str):
+    """Generate a hash for the serialized key to compare safely."""
+    return hashlib.sha256(key_str.encode('utf-8')).hexdigest()
+
 def have_keys_changed(new_keys):
     """
     Compare the newly loaded keys with the previously loaded ones.
     """
     global previous_keys
 
-    # Convert RSA keys to comparable format
-    serialized_new_keys = {k: serialize_key(v) for k, v in new_keys.items()}
-    serialized_prev_keys = {k: serialize_key(v) for k, v in previous_keys.items()}
+    if previous_keys is None:  
+        previous_keys = {}  
 
-    # print("\n--- Debugging Key Comparison ---")
-    # print("New Keys:", json.dumps(serialized_new_keys, indent=4))
-    # print("Previous Keys:", json.dumps(serialized_prev_keys, indent=4))
+    # Convert RSA keys to comparable hash format
+    serialized_new_keys = {k: hash_key(serialize_key(v)) for k, v in new_keys.items()}
+    serialized_prev_keys = {k: hash_key(serialize_key(v)) for k, v in previous_keys.items()}
 
     for key_name, key_value in serialized_new_keys.items():
         if key_name not in serialized_prev_keys or serialized_prev_keys[key_name] != key_value:
             print(f"Key {key_name} has changed!")
             send_log_to_gui(f"Debugging: Key {key_name} has changed!")
+            previous_keys = copy.deepcopy(new_keys)  # Update keys immediately
             return True  # A key has changed
 
-    # Update previous_keys only after successful comparison
-    previous_keys = copy.deepcopy(new_keys)
     print("No key changes detected.")
     send_log_to_gui("Debugging: No key changes detected.")
+    
+    previous_keys = copy.deepcopy(new_keys)  # Ensure state is updated
     return False
 
 #========================= Utility Functions =========================
