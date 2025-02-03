@@ -205,13 +205,20 @@ def have_keys_changed(new_keys):
     """
     global previous_keys
 
-    # Compare the new keys with the stored keys
+    print("\n--- Debugging Key Comparison ---")
+    print("New Keys:", json.dumps(new_keys, indent=4))  # Pretty print the keys
+    print("Previous Keys:", json.dumps(previous_keys, indent=4))
+
     for key_name, key_value in new_keys.items():
         if key_name not in previous_keys or previous_keys[key_name] != key_value:
+            print(f"Key {key_name} has changed!")
+            send_log_to_gui(f"Debugging: Key {key_name} has changed!")
             return True  # A key has changed
 
     # Update the previous keys to the current keys for future comparison
     previous_keys = copy.deepcopy(new_keys)
+    print("No key changes detected.")
+    send_log_to_gui("Debugging: No key changes detected.")
     return False
 
 #========================= Utility Functions =========================
@@ -527,6 +534,9 @@ def handle_message():
     # Ensure previous_keys are updated after comparison
     if not keys_have_changed:
         previous_keys = new_keys  # Update the previous_keys if no changes detected
+
+    print(f"Keys have changed: {keys_have_changed}")
+    send_log_to_gui(f"Debugging: Keys have changed: {keys_have_changed}")
 
     # If there's no active session or keys have changed, create a new session
     if not current_session["session_id"] or keys_have_changed:
