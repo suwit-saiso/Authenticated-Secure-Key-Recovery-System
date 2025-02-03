@@ -228,9 +228,9 @@ def have_keys_changed(new_keys):
     serialized_new_keys = {k: serialize_key(v) for k, v in new_keys.items()}
     serialized_prev_keys = {k: serialize_key(v) for k, v in previous_keys.items()}
 
-    print("\n--- Debugging Key Comparison ---")
-    print("New Keys:", json.dumps(serialized_new_keys, indent=4))
-    print("Previous Keys:", json.dumps(serialized_prev_keys, indent=4))
+    # print("\n--- Debugging Key Comparison ---")
+    # print("New Keys:", json.dumps(serialized_new_keys, indent=4))
+    # print("Previous Keys:", json.dumps(serialized_prev_keys, indent=4))
 
     for key_name, key_value in serialized_new_keys.items():
         if key_name not in serialized_prev_keys or serialized_prev_keys[key_name] != key_value:
