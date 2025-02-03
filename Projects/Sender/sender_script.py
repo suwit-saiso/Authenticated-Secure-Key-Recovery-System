@@ -219,9 +219,13 @@ def serialize_key(key):
         return [serialize_key(k) for k in key]
     return key  # Otherwise, return as is
 
-def hash_key(key_str):
+def hash_key(key_data):
     """Generate a hash for the serialized key to compare safely."""
-    return hashlib.sha256(key_str.encode('utf-8')).hexdigest()
+    if isinstance(key_data, list):
+        # Convert list to a sorted string representation to ensure consistent comparison
+        key_data = json.dumps(sorted(key_data))  # Convert to JSON string format
+
+    return hashlib.sha256(key_data.encode('utf-8')).hexdigest()
 
 def have_keys_changed(new_keys):
     """
