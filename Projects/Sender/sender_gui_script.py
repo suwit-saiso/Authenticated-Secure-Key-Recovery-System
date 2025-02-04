@@ -63,7 +63,7 @@ def send_message_to_sender():
         
         if response.status_code == 200:
             log_message = {
-                "message": f"Message sent to {receiver}: {message}",
+                "message": f"Message sent to {receiver}: {message} successful",
                 "timestamp": datetime.utcnow().isoformat()
             }
             add_log_entry(log_message)  # Add log

@@ -279,12 +279,24 @@ def decrypt_plaintext(encrypted_message, session_key, iv):
         # Create an AES cipher object for decryption
         cipher = Cipher(algorithms.AES(session_key), modes.CFB(iv))
         decryptor = cipher.decryptor()
-        
+
         # Decrypt the message
-        plaintext = decryptor.update(encrypted_message) + decryptor.finalize()
+        plaintext_bytes = decryptor.update(encrypted_message) + decryptor.finalize()
+        
         print("Decryption successful!")
         send_log_to_gui("Decryption successful!")
-        return plaintext.decode()
+
+        # Print raw decrypted bytes before attempting to decode
+        print(f"Raw decrypted bytes: {plaintext_bytes}")
+
+        try:
+            plaintext = plaintext_bytes.decode()
+            return plaintext
+        except UnicodeDecodeError as e:
+            print("Decryption output is not valid UTF-8 text (garbage data detected).")
+            send_log_to_gui("Decryption output is corrupted (garbage data detected).")
+            return f"GARBAGE OUTPUT: {plaintext_bytes.hex()}"
+
     except ValueError as e:
         print(f"Decryption failed: {e}")
         raise ValueError("Decryption failed. Check session key, IV, and message integrity.") from e
