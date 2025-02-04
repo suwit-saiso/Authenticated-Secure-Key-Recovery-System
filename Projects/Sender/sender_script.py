@@ -3,7 +3,6 @@ import socket
 import json
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.primitives.asymmetric import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 import uuid
@@ -34,8 +33,8 @@ SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))
 # Global variable to store keys
 keys = {}
 
-# Track the previously loaded keys
-previous_keys = {}
+# Store previous modification times globally
+previous_key_mod_times = {}
 
 # Ensure a folder exists
 def ensure_folder_exists(folder):
@@ -201,49 +200,58 @@ def clear_all_triggers(folder):
                 pass
     print("All triggers cleared.")
    
-def serialize_key(key):
-    """ Convert a cryptographic key to a serialized format for comparison. """
-    if isinstance(key, RSAPrivateKey):
-        return key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-    elif isinstance(key, RSAPublicKey):
-        return key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-    return key  # Non-key values remain unchanged
-
-def hash_key(serialized_key):
-    """ Generate a hash of the serialized key to detect changes. """
-    return hashlib.sha256(serialized_key).hexdigest() if isinstance(serialized_key, bytes) else serialized_key
-
-def have_keys_changed(new_keys):
+def get_key_mod_times():
     """
-    Compare the newly loaded keys with the previously loaded ones.
+    Get modification times for all key files.
     """
-    global previous_keys
+    script_dir = os.path.abspath(os.path.dirname(__file__))
 
-    if previous_keys is None:  
-        previous_keys = {}  
+    # Paths for Sender's private and public keys
+    sender_private_key_path = os.path.join(script_dir, "keys", "sender_private.pem")
+    sender_public_key_path = os.path.join(script_dir, "keys", "sender_public.pem")
 
-    # Convert RSA keys to comparable hash format
-    serialized_new_keys = {k: hash_key(serialize_key(v)) for k, v in new_keys.items()}
-    serialized_prev_keys = {k: hash_key(serialize_key(v)) for k, v in previous_keys.items()}
+    # Paths for Shared folder keys
+    shared_keys_dir = os.path.abspath(os.path.join(script_dir, "./Shared/keys"))
+    receiver_public_key_path = os.path.join(shared_keys_dir, "receiver_public.pem")
+    krc_public_key_path = os.path.join(shared_keys_dir, "krc_public.pem")
 
-    for key_name, key_value in serialized_new_keys.items():
-        if key_name not in serialized_prev_keys or serialized_prev_keys[key_name] != key_value:
-            print(f"Key {key_name} has changed!")
-            send_log_to_gui(f"Debugging: Key {key_name} has changed!")
-            previous_keys = serialized_new_keys  # Update keys immediately
-            return True  # A key has changed
+    kra_public_key_paths = [
+        os.path.join(shared_keys_dir, f"kra{i}_public.pem") for i in range(1, 6)
+    ]
+
+    # Collect modification times
+    key_paths = {
+        "sender_private_key": sender_private_key_path,
+        "sender_public_key": sender_public_key_path,
+        "receiver_public_key": receiver_public_key_path,
+        "krc_public_key": krc_public_key_path,
+    }
+
+    # Add KRA keys
+    for i, path in enumerate(kra_public_key_paths, start=1):
+        key_paths[f"kra{i}_public_key"] = path
+
+    return {key_name: os.path.getmtime(path) for key_name, path in key_paths.items() if os.path.exists(path)}
+
+def have_keys_changed():
+    """
+    Compare the modification times of key files to detect changes.
+    """
+    global previous_key_mod_times
+
+    current_mod_times = get_key_mod_times()
+
+    # Compare old and new timestamps
+    if previous_key_mod_times and previous_key_mod_times != current_mod_times:
+        print("Keys have changed!")
+        send_log_to_gui("Debugging: Keys have changed!")
+        previous_key_mod_times = current_mod_times  # Update to new timestamps
+        return True
 
     print("No key changes detected.")
     send_log_to_gui("Debugging: No key changes detected.")
 
-    previous_keys = serialized_new_keys  # Ensure state is updated
+    previous_key_mod_times = current_mod_times  # Ensure state is updated
     return False
 
 #========================= Utility Functions =========================
@@ -554,11 +562,7 @@ def handle_message():
 
     # Update keys and check if they have changed
     new_keys = load_keys()
-    keys_have_changed = have_keys_changed(new_keys)
-
-    # Ensure previous_keys are updated after comparison
-    if not keys_have_changed:
-        previous_keys = new_keys  # Update the previous_keys if no changes detected
+    keys_have_changed = have_keys_changed()
 
     print(f"Keys have changed: {keys_have_changed}")
     send_log_to_gui(f"Debugging: Keys have changed: {keys_have_changed}")
