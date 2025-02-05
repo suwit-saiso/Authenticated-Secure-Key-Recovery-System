@@ -186,6 +186,12 @@ def clear_all_triggers(folder):
     print("All triggers cleared.")
 
 #============================= Helper funtions ===================================
+# Generate PKCE challenge code
+def generate_pkce_challenge():
+    challenge_code = os.urandom(32)
+    challenge_verifier = hashlib.sha256(challenge_code).digest()
+    return challenge_code, challenge_verifier
+
 def send_log_to_gui(log_message):
     """
     Send log messages to the GUI application.
@@ -238,55 +244,74 @@ def handle_client(client_socket):
 
         # update key
         keys = load_keys()
+        
 
-        if message["type"] == "challenge":
-            print("Extract challenge code.")
-            encrypted_challenge = bytes.fromhex(message["encrypted_challenge_code"])
-            challenge_code = decrypt_data(encrypted_challenge)
+        if message["type"] == "challenge start":
 
-            # Generate challenge verifier
-            print("hashing challenge code.")
-            challenge_verifier = hashlib.sha256(challenge_code).digest()
+            # Generate challenge for KRC
+            challenge_code, challenge_verifier = generate_pkce_challenge()
+
+            # print("Extract challenge code.")
+            # send_log_to_gui("Extract challenge code.")
+            # encrypted_challenge = bytes.fromhex(message["encrypted_challenge_code"])
+            # send_log_to_gui(f"Encrypted challenge code: {encrypted_challenge}")
+            # challenge_code = decrypt_data(encrypted_challenge)
+            # send_log_to_gui(f"Decrypted challenge code: {challenge_code}")
+
+            # # Generate challenge verifier
+            # print("hashing challenge code.")
+            # send_log_to_gui("hashing challenge code.")
+            # challenge_verifier = hashlib.sha256(challenge_code).digest()
+            # send_log_to_gui(f"Hashed challenge code/challenge verifier:{challenge_verifier}")
 
             # Encrypt verifier with KRC's public key
-            print("Encrypting challenge.")
+            print("Encrypting challenge verifier.")
+            send_log_to_gui("Encrypting challenge verifier.")
             encrypted_verifier = encrypt_data(challenge_verifier, keys["krc_public_key"])
+            send_log_to_gui(f"Encrypted challenge verifier: {encrypted_verifier}")
             response = {
                 "type": "challenge_response",
                 "encrypted_challenge_verifier": encrypted_verifier.hex()
             }
             client_socket.send(json.dumps(response).encode('utf-8'))
             print("Challenge code verifier send.")
-            send_log_to_gui("Extract challenge code.")
-            send_log_to_gui(f"Encrypted challenge code: {encrypted_challenge}")
-            send_log_to_gui(f"Decrypted challenge code: {challenge_code}")
-            send_log_to_gui("hashing challenge code.")
-            send_log_to_gui(f"Hashed challenge code/challenge verifier:{challenge_verifier}")
-            send_log_to_gui("Encrypting challenge verifier.")
-            send_log_to_gui(f"Encrypted challenge verifier: {encrypted_verifier}")
             send_log_to_gui("Challenge code verifier send.")
         
+        elif message["type"] == "challenge verify":
+            # Encrypt verifier with KRC's public key
+            print("Encrypting challenge code.")
+            send_log_to_gui("Encrypting challenge code.")
+            encrypted_code = encrypt_data(challenge_code, keys["krc_public_key"])
+            send_log_to_gui(f"Encrypted challenge code: {encrypted_code}")
+            response = {
+                "type": "challenge_response_code",
+                "encrypted_challenge_code": encrypted_code.hex()
+            }
+            client_socket.send(json.dumps(response).encode('utf-8'))
+            print("Challenge code send.")
+            send_log_to_gui("Challenge code send.")
+
         elif message["type"] == "krf_retrieval":
             print("Extract KRF-i.")
+            send_log_to_gui("Extract KRF-i.")
             encrypted_krf_i = bytes.fromhex(message["encrypted_krf_i"])
             print("Decrypt KRF-i.")
+            send_log_to_gui(f"Encrypted krf-i: {encrypted_krf_i}")
+            send_log_to_gui("Decrypt KRF-i.")
             krf_i = decrypt_data(encrypted_krf_i)
+            send_log_to_gui(f"Decrypted KRF-i: {krf_i}")
 
             # Re-encrypt KRF-i with KRC's public key
             print("Re-encrypt KRF-i.")
+            send_log_to_gui("Re-encrypt KRF-i.")
             re_encrypted_krf_i = encrypt_data(krf_i, keys["krc_public_key"])
+            send_log_to_gui(f"Re-encrypted krf-i: {re_encrypted_krf_i}")
             response = {
                 "type": "krf_response",
                 "encrypted_krf_i": re_encrypted_krf_i.hex()
             }
             client_socket.send(json.dumps(response).encode('utf-8'))
             print("KRF-i send.")
-            send_log_to_gui("Extract KRF-i.")
-            send_log_to_gui(f"Encrypted krf-i: {encrypted_krf_i}")
-            send_log_to_gui("Decrypt KRF-i.")
-            send_log_to_gui(f"Decrypted KRF-i: {krf_i}")
-            send_log_to_gui("Re-encrypt KRF-i.")
-            send_log_to_gui(f"Re-encrypted krf-i: {re_encrypted_krf_i}")
             send_log_to_gui("KRF-i send.")
         
     except Exception as e:

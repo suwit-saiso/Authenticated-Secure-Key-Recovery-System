@@ -438,20 +438,27 @@ def distribute_krf_to_kras(krf, kra_public_keys):
     # Distribute KRF-i and perform PKCE-like challenge
     for i, kra_public_key in enumerate(kra_public_keys, start=1):
         try:
-            print(f'Generating challenge for KRA-{i}')
-            send_log_to_gui(f'Generating challenge for KRA-{i}')
+            # print(f'Generating challenge for KRA-{i}')
+            # send_log_to_gui(f'Generating challenge for KRA-{i}')
 
-            # Generate challenge for each KRA
-            challenge_code, challenge_verifier = generate_pkce_challenge()
+            # # Generate challenge for each KRA
+            # challenge_code, challenge_verifier = generate_pkce_challenge()
 
-            # Send the challenge code to KRA-i
-            encrypted_challenge_code = encrypt_data(challenge_code,kra_public_key)
+            # # Send the challenge code to KRA-i
+            # encrypted_challenge_code = encrypt_data(challenge_code,kra_public_key)
+            # print("prepare data to send KRA")
+            # send_log_to_gui("prepare data to send KRA")
+            # # Prepare data
+            # payload_1 = {
+            # "encrypted_challenge_code": encrypted_challenge_code.hex(),
+            # "type": "challenge"
+            # }
+
             print("prepare data to send KRA")
             send_log_to_gui("prepare data to send KRA")
             # Prepare data
             payload_1 = {
-            "encrypted_challenge_code": encrypted_challenge_code.hex(),
-            "type": "challenge"
+            "type": "challenge start"
             }
 
             payload_json = json.dumps(payload_1)
@@ -462,8 +469,8 @@ def distribute_krf_to_kras(krf, kra_public_keys):
 
             # Wait for the challenge verifier from KRA-i
             kra_response = receive_from_kra(i,connection1)
-            print("Extracting challenge verifier.")
-            send_log_to_gui("Extracting challenge verifier.")
+            print(f"Extracting challenge verifier from kra-{i}.")
+            send_log_to_gui(f"Extracting challenge verifier from kra-{i}.")
             if kra_response["type"] != "challenge_response":
                 raise ValueError(f"Unexpected response type from KRA-{i}: {kra_response.get('type')}")         
 
@@ -473,13 +480,41 @@ def distribute_krf_to_kras(krf, kra_public_keys):
             send_log_to_gui("Decrypting challenge verifier.")
             kra_challenge_verifier = decrypt_data(encrypted_kra_challenge_verifier)
 
+            print(f"request Kra-{i} for confirmation")
+            send_log_to_gui(f"request Kra-{i} for confirmation")
+            # Prepare data
+            payload_1_5 = {
+            "type": "challenge verify"
+            }
+
+            payload_json = json.dumps(payload_1_5)
+            payload_bytes1_5 = payload_json.encode('utf-8')
+            print("Payload size in bytes:", len(payload_bytes1_5))
+            send_log_to_gui(f"Payload to send: {payload_1_5}")
+            connection1_5 = send_to_kra(i, payload_bytes1_5)
+
+            # Wait for the challenge code from KRA-i
+            kra_response = receive_from_kra(i,connection1_5)
+            print(f"Extracting challenge code from kra-{i}.")
+            send_log_to_gui(f"Extracting challenge code from kra-{i}.")
+            if kra_response["type"] != "challenge_response_code":
+                raise ValueError(f"Unexpected response type from KRA-{i}: {kra_response.get('type')}")
+            
+            # decrypt challenge code
+            encrypted_kra_challenge_code = bytes.fromhex(kra_response["encrypted_challenge_code"])
+            print("Decrypting challenge code.")
+            send_log_to_gui("Decrypting challenge code.")
+            kra_challenge_code = decrypt_data(encrypted_kra_challenge_code)
+
             # Compare challenge verifiers
             print("Comparing challenge verifier.")
-            send_log_to_gui(f"Comparing challenge verifier {kra_challenge_verifier} from KRA with \n and {challenge_verifier} from KRC")
+            send_log_to_gui(f"Comparing challenge verifier {kra_challenge_verifier} from KRA with \n challenge code {kra_challenge_code} from KRA")
+            
+            challenge_verifier = hashlib.sha256(kra_challenge_code).digest()
             if kra_challenge_verifier != challenge_verifier:
                 print(f"KRA-{i} verification failed.")
                 send_log_to_gui(f"KRA-{i} verification failed.")
-                if not handle_failed_kra(i, payload_1, challenge_verifier):
+                if not handle_failed_kra(i, payload_1):
                     print(f"KRA-{i} permanently failed. Marking index as None.")
                     send_log_to_gui(f"KRA-{i} permanently failed. Marking index as None.")
                     krf_i_list[i - 1] = None
@@ -530,7 +565,7 @@ def distribute_krf_to_kras(krf, kra_public_keys):
         except Exception as e:
             print(f"Error communicating with KRA-{i}: {e}")
             send_log_to_gui(f"Error communicating with KRA-{i}: {e}")
-            if not handle_failed_kra(i, None, None):
+            if not handle_failed_kra(i, None):
                 print(f"KRA-{i} permanently failed due to exception. Marking index as None.")
                 send_log_to_gui(f"KRA-{i} permanently failed due to exception. Marking index as None.")
                 krf_i_list[i - 1] = None
@@ -668,7 +703,7 @@ def receive_from_kra(kra_index,sock):
             sock.close()
     
 # Function to handle individual KRA failures
-def handle_failed_kra(kra_index, payload, challenge_verifier):
+def handle_failed_kra(kra_index, payload):
     attempt = 1
     max_retries = 3
 
@@ -692,8 +727,37 @@ def handle_failed_kra(kra_index, payload, challenge_verifier):
                 send_log_to_gui(f"Decrypting challenge verifier on attempt {attempt}...")
                 kra_challenge_verifier = decrypt_data(encrypted_kra_challenge_verifier)
 
+                print(f"request Kra-{kra_index} for confirmation on attempt {attempt}...")
+                send_log_to_gui(f"request Kra-{kra_index} for confirmation on attempt {attempt}...")
+                # Prepare data
+                payload_1_5 = {
+                "type": "challenge verify"
+                }
+
+                payload_json = json.dumps(payload_1_5)
+                payload_bytes1_5 = payload_json.encode('utf-8')
+                print("Payload size in bytes:", len(payload_bytes1_5))
+                send_log_to_gui(f"Payload to send: {payload_1_5}")
+                connection1_5 = send_to_kra(kra_index, payload_bytes1_5)
+
+                # Wait for the challenge code from KRA-i
+                kra_response = receive_from_kra(kra_index,connection1_5)
+                print(f"Extracting challenge code from kra-{kra_index} on attempt {attempt}....")
+                send_log_to_gui(f"Extracting challenge code from kra-{kra_index} on attempt {attempt}....")
+                if kra_response["type"] != "challenge_response_code":
+                    raise ValueError(f"Unexpected response type from KRA-{kra_index}: {kra_response.get('type')}")
+                
+                # decrypt challenge code
+                encrypted_kra_challenge_code = bytes.fromhex(kra_response["encrypted_challenge_code"])
+                print(f"Decrypting challenge code on attempt {attempt}....")
+                send_log_to_gui(f"Decrypting challenge code on attempt {attempt}....")
+                kra_challenge_code = decrypt_data(encrypted_kra_challenge_code)
+
+                challenge_verifier = hashlib.sha256(kra_challenge_code).digest()    
+
                 # Compare challenge verifiers
                 print(f"Comparing challenge verifier on attempt {attempt}...")
+                send_log_to_gui(f"Comparing challenge verifier on attempt {attempt}...")
                 if kra_challenge_verifier == challenge_verifier:
                     print(f"KRA-{kra_index} verification succeeded.")
                     send_log_to_gui(f"KRA-{kra_index} verification succeeded.")
