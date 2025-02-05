@@ -438,24 +438,8 @@ def distribute_krf_to_kras(krf, kra_public_keys):
     # Distribute KRF-i and perform PKCE-like challenge
     for i, kra_public_key in enumerate(kra_public_keys, start=1):
         try:
-            # print(f'Generating challenge for KRA-{i}')
-            # send_log_to_gui(f'Generating challenge for KRA-{i}')
-
-            # # Generate challenge for each KRA
-            # challenge_code, challenge_verifier = generate_pkce_challenge()
-
-            # # Send the challenge code to KRA-i
-            # encrypted_challenge_code = encrypt_data(challenge_code,kra_public_key)
-            # print("prepare data to send KRA")
-            # send_log_to_gui("prepare data to send KRA")
-            # # Prepare data
-            # payload_1 = {
-            # "encrypted_challenge_code": encrypted_challenge_code.hex(),
-            # "type": "challenge"
-            # }
-
-            print("prepare data to send KRA")
-            send_log_to_gui("prepare data to send KRA")
+            print(f"prepare data to send KRA-{i}")
+            send_log_to_gui(f"prepare data to send KRA-{i}")
             # Prepare data
             payload_1 = {
             "type": "challenge start"

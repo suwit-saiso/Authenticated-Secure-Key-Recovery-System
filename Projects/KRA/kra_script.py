@@ -27,6 +27,7 @@ SHARED_KEYS_FOLDER = os.path.abspath(os.path.join(BASE_FOLDER, "./Shared/keys"))
 
 # Global variable to store keys
 keys = {}
+challenge_code, challenge_verifier = {},{}
 
 # Ensure a folder exists
 def ensure_folder_exists(folder):
@@ -247,22 +248,10 @@ def handle_client(client_socket):
         
 
         if message["type"] == "challenge start":
+            global challenge_code, challenge_verifier
 
-            # Generate challenge for KRC
+            # Generate challenge for KRC and save them 
             challenge_code, challenge_verifier = generate_pkce_challenge()
-
-            # print("Extract challenge code.")
-            # send_log_to_gui("Extract challenge code.")
-            # encrypted_challenge = bytes.fromhex(message["encrypted_challenge_code"])
-            # send_log_to_gui(f"Encrypted challenge code: {encrypted_challenge}")
-            # challenge_code = decrypt_data(encrypted_challenge)
-            # send_log_to_gui(f"Decrypted challenge code: {challenge_code}")
-
-            # # Generate challenge verifier
-            # print("hashing challenge code.")
-            # send_log_to_gui("hashing challenge code.")
-            # challenge_verifier = hashlib.sha256(challenge_code).digest()
-            # send_log_to_gui(f"Hashed challenge code/challenge verifier:{challenge_verifier}")
 
             # Encrypt verifier with KRC's public key
             print("Encrypting challenge verifier.")
