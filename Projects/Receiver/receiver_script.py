@@ -792,12 +792,12 @@ def manual_test():
         encrypted_message = session["encrypted_message"]
         response = receive_from_sender(latest_session_id, iv, encrypted_message)
         
-        # Restore the session key to avoid disrupting normal operations
-        if "session_key_used" in response:
-            if session_key:
-                send_log_to_gui("DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG")
-                session["session_key"] = session_key  # Restore the session key properly
-                sessions[latest_session_id] = session  # Ensure session dictionary is updated
+        # # Restore the session key to avoid disrupting normal operations
+        # if "session_key_used" in response:
+        #     if session_key:
+        #         send_log_to_gui("DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG")
+        #         session["session_key"] = session_key  # Restore the session key properly
+        #         sessions[latest_session_id] = session  # Ensure session dictionary is updated
 
         return jsonify({"message": response})
 
