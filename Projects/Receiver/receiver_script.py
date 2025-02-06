@@ -575,6 +575,15 @@ def update_session(session_id, iv, encrypted_message):
         print(f"Session ID {session_id} not found.")
         send_log_to_gui(f"Session ID {session_id} not found.")
 
+def update_session_key(session_id,new_session_key):
+    if session_id in sessions:
+        sessions[session_id].update({"session_key": new_session_key})
+        print(f"Session updated: {session_id}")
+        send_log_to_gui(f"Session updated: {sessions[session_id]}")
+    else:
+        print(f"Session ID {session_id} not found.")
+        send_log_to_gui(f"Session ID {session_id} not found.")
+
 # Function to handle messages from the sender
 def receive_from_sender(session_id, iv, encrypted_message):
     try:
@@ -785,6 +794,7 @@ def manual_test():
         # Restore the session key to avoid disrupting normal operations
         if "session_key_used" in response:
             if session_key:
+                send_log_to_gui("DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG")
                 session["session_key"] = session_key  # Restore the session key properly
                 sessions[latest_session_id] = session  # Ensure session dictionary is updated
 
