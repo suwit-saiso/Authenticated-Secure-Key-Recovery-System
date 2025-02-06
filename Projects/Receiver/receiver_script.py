@@ -612,6 +612,7 @@ def receive_from_sender(session_id, iv, encrypted_message):
             print("Session key successfully recovered and stored.")
             send_log_to_gui("Session key successfully recovered and stored.")
             session_key = recovered_key
+            send_log_to_gui(f"DEBUG: {recovered_key}")
             session_key_source = "from KRC"
         else:
             session_key_source = "from sender"
@@ -620,6 +621,7 @@ def receive_from_sender(session_id, iv, encrypted_message):
         print(f"Start decrypting message using session key {session_key_source}.")
         send_log_to_gui(f"Start decrypting message using session key {session_key_source}.")
         decrypted_message = decrypt_plaintext(encrypted_message, session_key, iv)
+        send_log_to_gui(f"DEBUG: {session_key}")
         print(f"Decrypted message: {decrypted_message}")
         send_log_to_gui(f"Decrypted message: {decrypted_message}\n,Session_key_used:{session_key_source}")
         
