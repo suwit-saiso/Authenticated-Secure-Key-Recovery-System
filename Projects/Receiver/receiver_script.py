@@ -627,6 +627,7 @@ def receive_from_sender(session_id, iv, encrypted_message):
                 return {"error": "Recovered session key is invalid"}
             
             # Update session with the recovered key
+            update_session_key(session_id,recovered_key)
             session["session_key"] = recovered_key
             sessions[session_id] = session  # Ensure the session is updated in the global dictionary
             print("Session key successfully recovered and stored.")
