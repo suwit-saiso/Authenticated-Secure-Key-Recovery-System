@@ -567,10 +567,13 @@ def establish_session(session_id, session_key, encrypted_krf, iv, encrypted_mess
     send_log_to_gui(f"Session established: {sessionInfo}")
 
 def update_session(session_id, iv, encrypted_message):
-    sessions[session_id] = {"iv": iv, "encrypted_message": encrypted_message}
-    print(f"Session updated: {session_id}")
-    sessionInfo = sessions[session_id]
-    send_log_to_gui(f"Session updated: {sessionInfo}")
+    if session_id in sessions:
+        sessions[session_id].update({"iv": iv, "encrypted_message": encrypted_message})
+        print(f"Session updated: {session_id}")
+        send_log_to_gui(f"Session updated: {sessions[session_id]}")
+    else:
+        print(f"Session ID {session_id} not found.")
+        send_log_to_gui(f"Session ID {session_id} not found.")
 
 # Function to handle messages from the sender
 def receive_from_sender(session_id, iv, encrypted_message):
