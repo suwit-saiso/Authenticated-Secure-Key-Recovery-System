@@ -563,7 +563,14 @@ def receive_from_krc(s):
 def establish_session(session_id, session_key, encrypted_krf, iv, encrypted_message, encrypted_AES_key, iv_AES):
     sessions[session_id] = {"session_key": session_key, "krf": encrypted_krf, "iv": iv, "encrypted_message": encrypted_message, "AES_key": encrypted_AES_key, "iv_AES": iv_AES}
     print(f"Session established: {session_id}")
-    send_log_to_gui(f"Session established: {sessions[session_id]}")
+    sessionInfo = sessions[session_id]
+    send_log_to_gui(f"Session established: {sessionInfo}")
+
+def update_session(session_id, iv, encrypted_message):
+    sessions[session_id] = {"iv": iv, "encrypted_message": encrypted_message}
+    print(f"Session updated: {session_id}")
+    sessionInfo = sessions[session_id]
+    send_log_to_gui(f"Session updated: {sessionInfo}")
 
 # Function to handle messages from the sender
 def receive_from_sender(session_id, iv, encrypted_message):
@@ -608,11 +615,11 @@ def receive_from_sender(session_id, iv, encrypted_message):
                 return {"error": "Recovered session key is invalid"}
             
             # Update session with the recovered key
-            sessions["session_key"] = recovered_key
+            session["session_key"] = recovered_key
+            sessions[session_id] = session  # Ensure the session is updated in the global dictionary
             print("Session key successfully recovered and stored.")
             send_log_to_gui("Session key successfully recovered and stored.")
             session_key = recovered_key
-            send_log_to_gui(f"DEBUG: {recovered_key}")
             session_key_source = "from KRC"
         else:
             session_key_source = "from sender"
@@ -714,6 +721,7 @@ def handle_sender_connection(conn):
 
         # Process message
         print("Processing message...")
+        update_session(session_id, iv, encrypted_message)
         response = receive_from_sender(session_id, iv, encrypted_message)
 
         conn.sendall(json.dumps(response).encode())
@@ -773,7 +781,9 @@ def manual_test():
         
         # Restore the session key to avoid disrupting normal operations
         if "session_key_used" in response:
-            session["session_key"] = session_key
+            if session_key:
+                session["session_key"] = session_key  # Restore the session key properly
+                sessions[latest_session_id] = session  # Ensure session dictionary is updated
 
         return jsonify({"message": response})
 
