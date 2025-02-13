@@ -38,7 +38,7 @@ thead {
     position: sticky;
     top: 0;
     z-index: 1;
-    background-color: #ff7f0e;
+    background-color: #2ecc71; /* Changed from orange to green */
 }
 
 /* Table Cells */
@@ -95,7 +95,7 @@ td {
 /* Recovery Button Styling */
 .recovery-button {
     padding: 10px 20px;
-    background-color: #ff7f0e;
+    background-color: #2ecc71; /* Changed from orange to green */
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -106,7 +106,7 @@ td {
 }
 
 .recovery-button:hover {
-    background-color: #ff9a42;
+    background-color: #27ae60; /* Darker green on hover */
 }
 
 /* Corrupt Button Styling */

@@ -38,7 +38,7 @@ thead {
     position: sticky;
     top: 0;
     z-index: 1;
-    background-color: #ff7f0e;
+    background-color: #8a2be2; /* Changed from orange to BlueViolet */
 }
 
 th, td {
@@ -69,7 +69,7 @@ tbody tr:hover {
 
 tbody tr:focus {
     background-color: #555;
-    outline: 2px solid #ff7f0e;
+    outline: 2px solid #9b30ff; /* Adjusted focus outline */
 }
 
 /* Scrollbar Styling */
@@ -88,8 +88,8 @@ tbody tr:focus {
 
 /* Message Form */
 .message-form {
-    width: 80%; /* Match the width of the table */
-    max-width: 100%; /* Prevent overflow */
+    width: 80%;
+    max-width: 100%;
     margin: 20px auto;
     padding: 20px;
     background-color: #333;
@@ -109,9 +109,12 @@ tbody tr:focus {
     color: #f4f4f4;
 }
 
-.message-form input, .message-form select, .message-form textarea, .message-form button {
-    width: calc(100% - 20px); /* Prevent overflow by adjusting for padding */
-    max-width: 100%; /* Ensure it stays within the container */
+.message-form input, 
+.message-form select, 
+.message-form textarea, 
+.message-form button {
+    width: calc(100% - 20px);
+    max-width: 100%;
     padding: 10px;
     margin-top: 5px;
     margin-bottom: 15px;
@@ -123,20 +126,20 @@ tbody tr:focus {
 }
 
 .message-form textarea {
-    resize: vertical; /* Allow resizing only vertically */
-    max-height: 200px; /* Limit maximum height */
-    min-height: 100px; /* Set a minimum height */
+    resize: vertical;
+    max-height: 200px;
+    min-height: 100px;
 }
 
 .message-form button {
-    background-color: #ff7f0e;
+    background-color: #8a2be2; /* Changed from orange to BlueViolet */
     border: none;
     cursor: pointer;
     transition: background-color 0.3s;
 }
 
 .message-form button:hover {
-    background-color: #ff9a42;
+    background-color: #9b30ff; /* Lighter purple for hover */
 }
 
 /* Responsive Table */
@@ -147,10 +150,10 @@ tbody tr:focus {
     }
 
     th:first-child, td:first-child {
-        width: 35%; /* Adjust for smaller screens */
+        width: 35%;
     }
 
     .message-form {
-        width: 90%; /* Slightly smaller for smaller screens */
+        width: 90%;
     }
 }

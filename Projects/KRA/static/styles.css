@@ -39,7 +39,7 @@ thead {
     position: sticky; /* Make the header sticky */
     top: 0; /* Stick to the top of the container */
     z-index: 1; /* Ensure header stays above content */
-    background-color: #ff7f0e; /* Orange color for table headers */
+    background-color: #3498db; /* Changed from orange to blue */
 }
 
 /* Table Cells */
